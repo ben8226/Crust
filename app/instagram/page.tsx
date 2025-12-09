@@ -60,7 +60,7 @@ export default function InstagramPage() {
             />
           </div>
           <p className="text-sm text-gray-500 mt-4 text-center">
-            Note: Replace "yourusername" with your actual Instagram username
+            Note: Replace &quot;yourusername&quot; with your actual Instagram username
           </p>
         </div>
       </main>

@@ -58,7 +58,7 @@ function OrderConfirmationContent() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Order Not Found</h1>
-            <p className="text-gray-600 mb-8">The order you're looking for doesn't exist.</p>
+            <p className="text-gray-600 mb-8">The order you&apos;re looking for doesn&apos;t exist.</p>
             <Link
               href="/"
               className="inline-block bg-brown-600 text-white px-6 py-3 rounded-lg hover:bg-brown-700 transition-colors"

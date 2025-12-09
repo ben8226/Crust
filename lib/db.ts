@@ -1,9 +1,23 @@
-import { kv } from '@vercel/kv';
 import { Product, Order } from "@/types/product";
+
+// Lazy load Vercel KV to avoid build-time errors
+async function getKV() {
+  try {
+    const { kv } = await import('@vercel/kv');
+    return kv;
+  } catch (error) {
+    console.warn("Vercel KV not available:", error);
+    return null;
+  }
+}
 
 // Read orders from Vercel KV
 export async function getOrders(): Promise<Order[]> {
   try {
+    const kv = await getKV();
+    if (!kv) {
+      return [];
+    }
     const orders = await kv.get<Order[]>('orders');
     return orders || [];
   } catch (error) {
@@ -16,6 +30,11 @@ export async function getOrders(): Promise<Order[]> {
 // Save order to Vercel KV
 export async function saveOrder(order: Order): Promise<void> {
   try {
+    const kv = await getKV();
+    if (!kv) {
+      console.warn("Vercel KV not configured. Order not persisted.");
+      return;
+    }
     const orders = await getOrders();
     orders.push(order);
     await kv.set('orders', orders);
