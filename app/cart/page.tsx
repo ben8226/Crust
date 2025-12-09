@@ -1,0 +1,179 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useCart } from "@/contexts/CartContext";
+import Navbar from "@/components/Navbar";
+import Link from "next/link";
+import Image from "next/image";
+
+export default function CartPage() {
+  const { cart, removeFromCart, updateQuantity, getTotalPrice, clearCart } = useCart();
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
+
+  // Load payment method from localStorage on mount
+  useEffect(() => {
+    const savedPaymentMethod = localStorage.getItem("paymentMethod");
+    if (savedPaymentMethod === "cash" || savedPaymentMethod === "venmo") {
+      setPaymentMethod(savedPaymentMethod);
+    }
+  }, []);
+
+  // Save payment method to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem("paymentMethod", paymentMethod);
+  }, [paymentMethod]);
+
+  if (cart.length === 0) {
+    return (
+      <div className="min-h-screen bg-tan-50">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Your Cart</h1>
+            <p className="text-gray-600 mb-8">Your cart is empty</p>
+            <Link
+              href="/"
+              className="inline-block bg-brown-600 text-white px-6 py-3 rounded-lg hover:bg-brown-700 transition-colors"
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-tan-50">
+      <Navbar />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-4">
+            {cart.map((item) => (
+              <div
+                key={item.product.id}
+                className="bg-white rounded-lg shadow-md p-6 flex flex-col sm:flex-row gap-4"
+              >
+                <div className="relative w-full sm:w-32 h-32 bg-gray-200 rounded-lg flex-shrink-0">
+                  <Image
+                    src={item.product.image}
+                    alt={item.product.name}
+                    fill
+                    className="object-cover rounded-lg"
+                    sizes="128px"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    {item.product.name}
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-4">{item.product.description}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <label className="text-sm text-gray-700">Quantity:</label>
+                      <div className="flex items-center border rounded">
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          className="px-3 py-1 hover:bg-gray-100"
+                        >
+                          -
+                        </button>
+                        <span className="px-4 py-1 border-x">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          className="px-3 py-1 hover:bg-gray-100"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-semibold text-gray-900">
+                        ${(item.product.price * item.quantity).toFixed(2)}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        ${item.product.price.toFixed(2)} each
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeFromCart(item.product.id)}
+                  className="text-red-600 hover:text-red-700 font-medium text-sm"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={clearCart}
+              className="text-red-600 hover:text-red-700 font-medium"
+            >
+              Clear Cart
+            </button>
+          </div>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Order Summary</h2>
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between text-gray-700">
+                  <span>Subtotal ({cart.length} items)</span>
+                  <span>${getTotalPrice().toFixed(2)}</span>
+                </div>
+               
+                <div className="border-t pt-3 flex justify-between text-xl font-bold text-gray-900">
+                  <span>Total</span>
+                  <span>${getTotalPrice().toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Payment Method</h3>
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="cash"
+                      checked={paymentMethod === "cash"}
+                      onChange={(e) => setPaymentMethod(e.target.value as "cash" | "venmo")}
+                      className="w-4 h-4 text-brown-600 focus:ring-brown-500"
+                    />
+                    <span className="ml-3 text-gray-700 font-medium">Cash (at pickup)</span>
+                  </label>
+                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="venmo"
+                      checked={paymentMethod === "venmo"}
+                      onChange={(e) => setPaymentMethod(e.target.value as "cash" | "venmo")}
+                      className="w-4 h-4 text-brown-600 focus:ring-brown-500"
+                    />
+                    <span className="ml-3 text-gray-700 font-medium">Venmo (pre-pay)</span>
+                  </label>
+                </div>
+              </div>
+              
+              <Link
+                href="/checkout"
+                className="block w-full bg-brown-600 text-white text-center py-3 rounded-lg hover:bg-brown-700 transition-colors font-medium"
+              >
+                Proceed to Checkout
+              </Link>
+              <Link
+                href="/"
+                className="block w-full text-center py-3 text-gray-700 hover:text-gray-900 mt-3"
+              >
+                Continue Shopping
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+
