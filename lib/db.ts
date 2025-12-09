@@ -3,14 +3,34 @@ import { Product, Order } from "@/types/product";
 // Lazy load Upstash Redis to avoid build-time errors
 async function getRedis() {
   try {
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (!url || !token) {
+      console.warn("Upstash Redis credentials not found. Check environment variables:");
+      console.warn("UPSTASH_REDIS_REST_URL:", url ? "✓ Set" : "✗ Missing");
+      console.warn("UPSTASH_REDIS_REST_TOKEN:", token ? "✓ Set" : "✗ Missing");
+      return null;
+    }
+
     const { Redis } = await import('@upstash/redis');
     const redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      url: url,
+      token: token,
     });
+    
+    // Test connection
+    try {
+      await redis.ping();
+      console.log("✓ Upstash Redis connection successful");
+    } catch (pingError) {
+      console.error("✗ Upstash Redis ping failed:", pingError);
+      return null;
+    }
+    
     return redis;
   } catch (error) {
-    console.warn("Upstash Redis not available:", error);
+    console.error("Upstash Redis initialization error:", error);
     return null;
   }
 }
@@ -20,9 +40,11 @@ export async function getOrders(): Promise<Order[]> {
   try {
     const redis = await getRedis();
     if (!redis) {
+      console.warn("Redis not available, returning empty array");
       return [];
     }
     const orders = await redis.get<Order[]>('orders');
+    console.log(`✓ Retrieved ${orders?.length || 0} orders from Redis`);
     return orders || [];
   } catch (error) {
     console.error("Error reading orders from Redis:", error);
@@ -36,17 +58,27 @@ export async function saveOrder(order: Order): Promise<void> {
   try {
     const redis = await getRedis();
     if (!redis) {
-      console.warn("Upstash Redis not configured. Order not persisted.");
-      return;
+      console.error("✗ Upstash Redis not configured. Order not persisted.");
+      throw new Error("Redis not configured");
     }
+    
     const orders = await getOrders();
     orders.push(order);
+    
+    console.log(`Saving ${orders.length} orders to Redis (including new order: ${order.id})`);
     await redis.set('orders', orders);
+    
+    // Verify it was saved
+    const verify = await redis.get<Order[]>('orders');
+    if (verify && verify.length === orders.length) {
+      console.log(`✓ Order ${order.id} saved successfully. Total orders: ${verify.length}`);
+    } else {
+      console.error("✗ Order save verification failed. Expected:", orders.length, "Got:", verify?.length || 0);
+    }
   } catch (error) {
     console.error("Error saving order to Redis:", error);
-    // If Redis is not configured, log warning but don't throw
-    // This allows the app to work without Redis (orders just won't persist)
-    console.warn("Upstash Redis not configured. Order not persisted.");
+    // Re-throw so the API can handle it
+    throw error;
   }
 }
 

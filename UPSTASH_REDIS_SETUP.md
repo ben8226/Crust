@@ -99,10 +99,26 @@ The code is designed to gracefully handle missing Redis configuration:
 
 ## Testing
 
+### Test Database Connection
+
+After deploying, you can test your database connection by visiting:
+```
+https://your-app.vercel.app/api/orders/test
+```
+
+This diagnostic endpoint will show:
+- ✓/✗ Environment variables status
+- ✓/✗ Connection status
+- Number of orders in database
+- Any error messages
+
+### Test Order Creation
+
 1. Deploy to Vercel
-2. Place a test order
-3. Check Upstash Console to see the stored order
-4. Verify orders persist across deployments
+2. Place a test order through the checkout page
+3. Check the diagnostic endpoint to verify the order was saved
+4. Check Upstash Console to see the stored order
+5. Verify orders persist across deployments
 
 ## Pricing
 
@@ -138,6 +154,37 @@ The code is designed to gracefully handle missing Redis configuration:
 - Verify `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set
 - Check that the database is active in Upstash console
 - Ensure the region matches your deployment region
+- Visit `/api/orders/test` to see detailed diagnostics
+
+### Orders Not Appearing in Database
+
+1. **Check Environment Variables**:
+   - Go to Vercel Dashboard → Your Project → Settings → Environment Variables
+   - Verify both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set
+   - Make sure they're added for **Production**, **Preview**, and **Development**
+   - **Important**: After adding/changing environment variables, you must **redeploy**
+
+2. **Check Deployment Logs**:
+   - Go to Vercel Dashboard → Your Project → Deployments
+   - Click on the latest deployment → View Function Logs
+   - Look for Redis connection messages (✓ or ✗)
+   - Look for "Order saved successfully" messages
+
+3. **Test the Connection**:
+   - Visit `https://your-app.vercel.app/api/orders/test`
+   - This will show you exactly what's wrong
+
+4. **Verify in Upstash Console**:
+   - Go to [Upstash Console](https://console.upstash.com/)
+   - Select your database
+   - Check the "Data" tab to see if the `orders` key exists
+   - You should see a key named `orders` with your order data
+
+5. **Common Issues**:
+   - **Environment variables not set**: Add them in Vercel and redeploy
+   - **Wrong credentials**: Double-check you copied the correct URL and token
+   - **Database paused**: Check if your Upstash database is active
+   - **Free tier limits**: Check if you've exceeded your daily command limit
 
 ## Migration from Vercel KV
 

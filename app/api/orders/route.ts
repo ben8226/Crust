@@ -46,7 +46,20 @@ export async function POST(request: Request) {
     };
 
     // Save order
-    await saveOrder(order);
+    try {
+      await saveOrder(order);
+      console.log(`✓ Order ${order.id} saved successfully`);
+    } catch (saveError) {
+      console.error("✗ Failed to save order to database:", saveError);
+      // Return error with details for debugging
+      return NextResponse.json(
+        { 
+          error: "Failed to save order to database",
+          details: saveError instanceof Error ? saveError.message : String(saveError)
+        },
+        { status: 500 }
+      );
+    }
 
     // Send SMS notifications (non-blocking)
     try {
@@ -63,7 +76,10 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error creating order:", error);
     return NextResponse.json(
-      { error: "Failed to create order" },
+      { 
+        error: "Failed to create order",
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
