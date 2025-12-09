@@ -119,21 +119,27 @@ npm start
 
 ## Data Storage
 
-Orders are stored using **Vercel KV** (key-value database) for production deployments. This works seamlessly with Vercel's serverless environment.
+Orders are stored using **Upstash Redis** (serverless Redis database) for production deployments. This works seamlessly with Vercel's serverless environment and provides excellent performance.
 
-### Setting Up Vercel KV
+### Setting Up Upstash Redis
 
-1. In your Vercel dashboard, go to **Storage** → **Create Database** → **KV**
-2. Vercel automatically configures environment variables
-3. Redeploy your application
+1. Create a free account at [Upstash Console](https://console.upstash.com/)
+2. Create a new Redis database
+3. Copy your `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
+4. Add these as environment variables in your Vercel project
+5. Redeploy your application
 
-See `VERCEL_KV_SETUP.md` for detailed instructions.
+See `UPSTASH_REDIS_SETUP.md` for detailed instructions.
 
 ### Local Development
 
-For local development, the app will work but orders won't persist (stored in memory). To use KV locally:
-- Install Vercel CLI: `npm i -g vercel`
-- Run: `vercel link` and `vercel env pull`
+For local development, create a `.env.local` file with your Upstash credentials:
+```env
+UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-token-here
+```
+
+Without these variables, the app will work but orders won't persist (stored in memory).
 
 ### Alternative Storage Options
 
