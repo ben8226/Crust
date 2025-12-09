@@ -434,56 +434,56 @@ export default function AdminPage() {
     <div className="min-h-screen bg-tan-50">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage orders and products</p>
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage orders, products, calendar, and gallery</p>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab("orders")}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === "orders"
-                  ? "border-brown-600 text-brown-600"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Orders
-            </button>
-            <button
-              onClick={() => setActiveTab("products")}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === "products"
-                  ? "border-brown-600 text-brown-600"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Edit Products
-            </button>
-            <button
-              onClick={() => setActiveTab("calendar")}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === "calendar"
-                  ? "border-brown-600 text-brown-600"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Calendar
-            </button>
-            <button
-              onClick={() => setActiveTab("gallery")}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === "gallery"
-                  ? "border-brown-600 text-brown-600"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Gallery
-            </button>
-          </div>
-        </div>
+              {/* Tabs */}
+              <div className="mb-4 sm:mb-6 border-b border-gray-200 overflow-x-auto">
+                <div className="flex gap-1 sm:gap-2 min-w-max">
+                  <button
+                    onClick={() => setActiveTab("orders")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "orders"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Orders
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("products")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "products"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Edit Products
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("calendar")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "calendar"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Calendar
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("gallery")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "gallery"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Gallery
+                  </button>
+                </div>
+              </div>
 
         {/* Orders Tab */}
         {activeTab === "orders" && (

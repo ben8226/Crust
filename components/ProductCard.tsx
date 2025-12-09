@@ -34,8 +34,8 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
       <div className="p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-2">{product.name}</h3>
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
-        <div className="flex items-center justify-between">
-          <span className="text-2xl font-bold text-brown-600">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <span className="text-xl sm:text-2xl font-bold text-brown-600">
             ${product.price.toFixed(2)}
           </span>
           <button
@@ -47,7 +47,7 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
               }
             }}
             disabled={!product.inStock}
-            className={`px-4 py-2 rounded font-medium transition-colors ${
+            className={`w-full sm:w-auto px-4 py-2 rounded font-medium transition-colors text-sm sm:text-base ${
               product.inStock
                 ? "bg-brown-600 text-white hover:bg-brown-700"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"

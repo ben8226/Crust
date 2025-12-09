@@ -96,8 +96,8 @@ function OrderConfirmationContent() {
   return (
     <div className="min-h-screen bg-tan-50">
       <Navbar />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8 text-center">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16">
+        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8 text-center">
           <div className="mb-6">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg

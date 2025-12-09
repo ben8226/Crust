@@ -155,12 +155,12 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-tan-50">
       <Navbar />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
-          <div className="text-right">
-            <p className="text-sm text-gray-600">Current Time</p>
-            <p className="text-lg font-semibold text-gray-900">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-8 gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Checkout</h1>
+          <div className="text-left sm:text-right">
+            <p className="text-xs sm:text-sm text-gray-600">Current Time</p>
+            <p className="text-base sm:text-lg font-semibold text-gray-900">
               {currentTime.toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -177,10 +177,10 @@ export default function CheckoutPage() {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 space-y-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-4 sm:p-6 space-y-4 sm:space-y-6">
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">
                 Customer Information
               </h2>
               
@@ -214,11 +214,11 @@ export default function CheckoutPage() {
                 />
               </div>
 
-              <div className="border-t pt-6">
-                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              <div className="border-t pt-4 sm:pt-6">
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">
                   Schedule Pickup
                 </h2>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="pickupDate" className="block text-sm font-medium text-gray-700 mb-2">
@@ -288,8 +288,8 @@ export default function CheckoutPage() {
           </div>
 
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Order Summary</h2>
+            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 lg:sticky lg:top-24">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Order Summary</h2>
               <div className="space-y-3 mb-6">
                 {cart.map((item) => (
                   <div key={item.product.id} className="flex justify-between text-sm">

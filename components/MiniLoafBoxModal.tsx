@@ -46,9 +46,9 @@ export default function MiniLoafBoxModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Select 4 Breads for Your Box</h2>
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Select 4 Breads for Your Box</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -70,16 +70,16 @@ export default function MiniLoafBoxModal({
           </button>
         </div>
 
-        <div className="space-y-4 mb-6">
+        <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
           {[0, 1, 2, 3].map((index) => (
             <div key={index}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                 Bread {index + 1} *
               </label>
               <select
                 value={selectedBreads[index]}
                 onChange={(e) => handleBreadChange(index, e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
               >
                 <option value="">Select a bread...</option>
                 {availableBreads.map((bread) => (
@@ -92,16 +92,16 @@ export default function MiniLoafBoxModal({
           ))}
         </div>
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors"
+            className="w-full sm:w-auto px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors text-sm sm:text-base"
           >
             Add to Cart
           </button>

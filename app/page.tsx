@@ -73,11 +73,11 @@ export default async function Home() {
     <div className="min-h-screen bg-tan-50">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">
             Sourdough Bread
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             These products are homemade and not subject to state inspection.  Minnesota Cottage Food Producer License #20273109
           </p>
         </div>
@@ -89,10 +89,10 @@ export default async function Home() {
           <div className="space-y-12">
             {sortedCategories.map((category) => (
               <div key={category}>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 border-b-2 border-brown-600 pb-2">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 border-b-2 border-brown-600 pb-2">
                   {category}
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {grouped[category].map((product) => (
                     <ProductCard
                       key={product.id}
