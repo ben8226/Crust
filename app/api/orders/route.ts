@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     };
 
     // Save order
-    saveOrder(order);
+    await saveOrder(order);
 
     // Send SMS notifications (non-blocking)
     try {
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const orders = getOrders();
+    const orders = await getOrders();
     return NextResponse.json(orders, { status: 200 });
   } catch (error) {
     console.error("Error fetching orders:", error);

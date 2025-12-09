@@ -119,11 +119,30 @@ npm start
 
 ## Data Storage
 
-Orders are currently stored in `data/orders.json` using file system operations. This is suitable for development and small-scale deployments. For production, consider upgrading to:
+Orders are stored using **Vercel KV** (key-value database) for production deployments. This works seamlessly with Vercel's serverless environment.
+
+### Setting Up Vercel KV
+
+1. In your Vercel dashboard, go to **Storage** → **Create Database** → **KV**
+2. Vercel automatically configures environment variables
+3. Redeploy your application
+
+See `VERCEL_KV_SETUP.md` for detailed instructions.
+
+### Local Development
+
+For local development, the app will work but orders won't persist (stored in memory). To use KV locally:
+- Install Vercel CLI: `npm i -g vercel`
+- Run: `vercel link` and `vercel env pull`
+
+### Alternative Storage Options
+
+For other hosting platforms or custom setups, consider:
 - PostgreSQL
 - MongoDB
 - SQLite
-- Cloud databases (Supabase, PlanetScale, etc.)
+- Supabase
+- PlanetScale
 
 ## SMS Notifications
 

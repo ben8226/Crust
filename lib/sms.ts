@@ -1,4 +1,5 @@
 import { Order } from "@/types/product";
+import twilio from "twilio";
 
 // Format phone number for Twilio (E.164 format)
 export function formatPhoneNumber(phone: string): string {
@@ -57,7 +58,7 @@ export async function sendCustomerConfirmation(order: Order): Promise<void> {
   }
 
   try {
-    const twilio = require("twilio")(twilioAccountSid, twilioAuthToken);
+    const client = twilio(twilioAccountSid, twilioAuthToken);
     const customerPhone = formatPhoneNumber(order.phone);
     const items = formatOrderItems(order);
     const pickupInfo = formatPickupDateTime(order);
@@ -73,7 +74,7 @@ Pickup: ${pickupInfo}
 
 Thank you for your order!`;
 
-    await twilio.messages.create({
+    await client.messages.create({
       body: message,
       from: twilioPhoneNumber,
       to: customerPhone,
@@ -104,7 +105,7 @@ export async function sendStoreOwnerNotification(order: Order): Promise<void> {
   }
 
   try {
-    const twilio = require("twilio")(twilioAccountSid, twilioAuthToken);
+    const client = twilio(twilioAccountSid, twilioAuthToken);
     const ownerPhone = formatPhoneNumber(storeOwnerPhone);
     const items = formatOrderItems(order);
     const pickupInfo = formatPickupDateTime(order);
@@ -122,7 +123,7 @@ Pickup: ${pickupInfo}
 
 Order placed: ${new Date(order.date).toLocaleString()}`;
 
-    await twilio.messages.create({
+    await client.messages.create({
       body: message,
       from: twilioPhoneNumber,
       to: ownerPhone,

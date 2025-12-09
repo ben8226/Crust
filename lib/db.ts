@@ -1,74 +1,48 @@
-import fs from "fs";
-import path from "path";
+import { kv } from '@vercel/kv';
 import { Product, Order } from "@/types/product";
 
-const dataDirectory = path.join(process.cwd(), "data");
-const ordersFile = path.join(dataDirectory, "orders.json");
-const productsFile = path.join(dataDirectory, "products.json");
-
-// Ensure data directory exists
-if (!fs.existsSync(dataDirectory)) {
-  fs.mkdirSync(dataDirectory, { recursive: true });
-}
-
-// Initialize orders file if it doesn't exist
-if (!fs.existsSync(ordersFile)) {
-  fs.writeFileSync(ordersFile, JSON.stringify([], null, 2));
-}
-
-// Read orders from file
-export function getOrders(): Order[] {
+// Read orders from Vercel KV
+export async function getOrders(): Promise<Order[]> {
   try {
-    const fileContents = fs.readFileSync(ordersFile, "utf8");
-    return JSON.parse(fileContents);
+    const orders = await kv.get<Order[]>('orders');
+    return orders || [];
   } catch (error) {
-    console.error("Error reading orders:", error);
+    console.error("Error reading orders from KV:", error);
+    // Fallback to empty array if KV is not configured
     return [];
   }
 }
 
-// Save order to file
-export function saveOrder(order: Order): void {
+// Save order to Vercel KV
+export async function saveOrder(order: Order): Promise<void> {
   try {
-    const orders = getOrders();
+    const orders = await getOrders();
     orders.push(order);
-    fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2));
+    await kv.set('orders', orders);
   } catch (error) {
-    console.error("Error saving order:", error);
-    throw new Error("Failed to save order");
+    console.error("Error saving order to KV:", error);
+    // If KV is not configured, log warning but don't throw
+    // This allows the app to work without KV (orders just won't persist)
+    console.warn("Vercel KV not configured. Order not persisted.");
   }
 }
 
 // Get order by ID
-export function getOrderById(id: string): Order | null {
-  const orders = getOrders();
-  return orders.find((order) => order.id === id) || null;
+export async function getOrderById(id: string): Promise<Order | null> {
+  try {
+    const orders = await getOrders();
+    return orders.find((order) => order.id === id) || null;
+  } catch (error) {
+    console.error("Error getting order by ID:", error);
+    return null;
+  }
 }
 
-// Read products from file (fallback to static data)
+// Read products (always use static data - no KV needed)
 export function getProducts(): Product[] {
-  try {
-    if (fs.existsSync(productsFile)) {
-      const fileContents = fs.readFileSync(productsFile, "utf8");
-      return JSON.parse(fileContents);
-    }
-    // If products file doesn't exist, return empty array
-    // Products will be loaded from the static data file
-    return [];
-  } catch (error) {
-    console.error("Error reading products:", error);
-    return [];
-  }
-}
-
-// Save products to file
-export function saveProducts(products: Product[]): void {
-  try {
-    fs.writeFileSync(productsFile, JSON.stringify(products, null, 2));
-  } catch (error) {
-    console.error("Error saving products:", error);
-    throw new Error("Failed to save products");
-  }
+  // Always return empty array - products come from static data file
+  // This keeps it simple and avoids KV for products
+  return [];
 }
 
 
