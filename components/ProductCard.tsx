@@ -17,7 +17,7 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
-      <div className="relative h-48 w-full bg-gray-200">
+      <div className="relative w-full aspect-square bg-gray-200">
         <Image
           src={product.image}
           alt={product.name}
