@@ -5,10 +5,33 @@ import { useCart } from "@/contexts/CartContext";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import Image from "next/image";
+import { Product } from "@/types/product";
 
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, getTotalPrice, clearCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+
+  // Fetch all products to get bread names for mini loaf boxes
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch("/api/products");
+        if (response.ok) {
+          const data = await response.json();
+          setAllProducts(data);
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  const getBreadName = (breadId: string) => {
+    const bread = allProducts.find((p) => p.id === breadId);
+    return bread?.name || breadId;
+  };
 
   // Load payment method from localStorage on mount
   useEffect(() => {
@@ -50,9 +73,9 @@ export default function CartPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
-            {cart.map((item) => (
+            {cart.map((item, index) => (
               <div
-                key={item.product.id}
+                key={`${item.product.id}-${item.selectedBreads ? JSON.stringify(item.selectedBreads) : index}`}
                 className="bg-white rounded-lg shadow-md p-6 flex flex-col sm:flex-row gap-4"
               >
                 <div className="relative w-full sm:w-32 h-32 bg-gray-200 rounded-lg flex-shrink-0">
@@ -69,6 +92,21 @@ export default function CartPage() {
                     {item.product.name}
                   </h3>
                   <p className="text-gray-600 text-sm mb-4">{item.product.description}</p>
+                  
+                  {/* Show selected breads for mini loaf box */}
+                  {item.product.isMiniLoafBox && item.selectedBreads && item.selectedBreads.length > 0 && (
+                    <div className="mb-4 p-3 bg-tan-50 rounded-lg border border-brown-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Selected Breads:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        {item.selectedBreads.map((breadId, index) => (
+                          <li key={index} className="text-sm text-gray-600">
+                            {getBreadName(breadId)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <label className="text-sm text-gray-700">Quantity:</label>
@@ -99,7 +137,7 @@ export default function CartPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => removeFromCart(item.product.id)}
+                  onClick={() => removeFromCart(item.product.id, item.selectedBreads)}
                   className="text-red-600 hover:text-red-700 font-medium text-sm"
                 >
                   Remove

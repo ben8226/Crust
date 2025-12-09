@@ -5,8 +5,8 @@ import { CartItem, Product } from "@/types/product";
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
+  addToCart: (product: Product, selectedBreads?: string[]) => void;
+  removeFromCart: (productId: string, selectedBreads?: string[]) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
@@ -31,8 +31,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, selectedBreads?: string[]) => {
     setCart((prevCart) => {
+      // For mini loaf box, check if same selection exists
+      if (product.isMiniLoafBox && selectedBreads) {
+        const existingItem = prevCart.find(
+          (item) =>
+            item.product.id === product.id &&
+            JSON.stringify(item.selectedBreads?.sort()) ===
+              JSON.stringify(selectedBreads.sort())
+        );
+        if (existingItem) {
+          return prevCart.map((item) =>
+            item.product.id === product.id &&
+            JSON.stringify(item.selectedBreads?.sort()) ===
+              JSON.stringify(selectedBreads.sort())
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          );
+        }
+        return [
+          ...prevCart,
+          { product, quantity: 1, selectedBreads },
+        ];
+      }
+
+      // Regular products
       const existingItem = prevCart.find((item) => item.product.id === product.id);
       if (existingItem) {
         return prevCart.map((item) =>
@@ -45,8 +69,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart((prevCart) => prevCart.filter((item) => item.product.id !== productId));
+  const removeFromCart = (productId: string, selectedBreads?: string[]) => {
+    setCart((prevCart) => {
+      if (selectedBreads) {
+        // For mini loaf box, remove specific selection
+        return prevCart.filter(
+          (item) =>
+            !(
+              item.product.id === productId &&
+              JSON.stringify(item.selectedBreads?.sort()) ===
+                JSON.stringify(selectedBreads.sort())
+            )
+        );
+      }
+      // For regular products, remove all instances
+      return prevCart.filter((item) => item.product.id !== productId);
+    });
   };
 
   const updateQuantity = (productId: string, quantity: number) => {

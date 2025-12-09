@@ -1,15 +1,19 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Product } from "@/types/product";
 import { useCart } from "@/contexts/CartContext";
 import Image from "next/image";
+import MiniLoafBoxModal from "./MiniLoafBoxModal";
 
 interface ProductCardProps {
   product: Product;
+  availableBreads?: Product[]; // For mini loaf box selection
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, availableBreads = [] }: ProductCardProps) {
   const { addToCart } = useCart();
+  const [showModal, setShowModal] = useState(false);
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
@@ -35,7 +39,13 @@ export default function ProductCard({ product }: ProductCardProps) {
             ${product.price.toFixed(2)}
           </span>
           <button
-            onClick={() => addToCart(product)}
+            onClick={() => {
+              if (product.isMiniLoafBox) {
+                setShowModal(true);
+              } else {
+                addToCart(product);
+              }
+            }}
             disabled={!product.inStock}
             className={`px-4 py-2 rounded font-medium transition-colors ${
               product.inStock
@@ -46,8 +56,24 @@ export default function ProductCard({ product }: ProductCardProps) {
             Add to Cart
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">{product.category}</p>
+        {product.ingredients && (
+          <p className="text-xs text-gray-600 mt-3 pt-3 border-t border-gray-200">
+            <span className="font-medium text-gray-700">Ingredients: </span>
+            {product.ingredients}
+          </p>
+        )}
       </div>
+
+      {product.isMiniLoafBox && (
+        <MiniLoafBoxModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          onConfirm={(selectedBreads) => {
+            addToCart(product, selectedBreads);
+          }}
+          availableBreads={availableBreads}
+        />
+      )}
     </div>
   );
 }

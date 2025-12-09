@@ -5,6 +5,8 @@ import { useCart } from "@/contexts/CartContext";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function CheckoutPage() {
   const { cart, getTotalPrice, clearCart } = useCart();
@@ -14,18 +16,47 @@ export default function CheckoutPage() {
     phone: "",
   });
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
-  const [pickupDate, setPickupDate] = useState("");
+  const [pickupDate, setPickupDate] = useState<Date | null>(null);
   const [pickupTime, setPickupTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
 
   // Calculate min and max dates (2 days from today to one month in future)
   const minDate = new Date();
   minDate.setDate(minDate.getDate() + 2); // 2 days from today
-  const minDateString = minDate.toISOString().split("T")[0];
+  minDate.setHours(0, 0, 0, 0);
   const maxDate = new Date();
   maxDate.setMonth(maxDate.getMonth() + 1);
-  const maxDateString = maxDate.toISOString().split("T")[0];
+  maxDate.setHours(23, 59, 59, 999);
+
+  // Fetch blocked dates
+  useEffect(() => {
+    const fetchBlockedDates = async () => {
+      try {
+        const response = await fetch("/api/blocked-dates");
+        if (response.ok) {
+          const data = await response.json();
+          setBlockedDates(data);
+        }
+      } catch (error) {
+        console.error("Error fetching blocked dates:", error);
+      }
+    };
+    fetchBlockedDates();
+  }, []);
+
+  // Check if a date is blocked (for DatePicker filterDate)
+  const isDateBlocked = (date: Date) => {
+    const dateString = date.toISOString().split("T")[0];
+    return blockedDates.includes(dateString);
+  };
+
+  // Convert Date to string for form submission
+  const getDateString = (date: Date | null): string => {
+    if (!date) return "";
+    return date.toISOString().split("T")[0];
+  };
 
   // Load payment method from localStorage on mount
   useEffect(() => {
@@ -53,6 +84,18 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate that selected date is not blocked
+    if (pickupDate && isDateBlocked(pickupDate)) {
+      alert("The selected pickup date is blocked and unavailable. Please choose another date.");
+      return;
+    }
+    
+    if (!pickupDate) {
+      alert("Please select a pickup date.");
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -67,7 +110,7 @@ export default function CheckoutPage() {
           ...formData,
           total: getTotalPrice(),
           paymentMethod: paymentMethod,
-          pickupDate: pickupDate,
+          pickupDate: getDateString(pickupDate),
           pickupTime: pickupTime,
         }),
       });
@@ -181,19 +224,19 @@ export default function CheckoutPage() {
                     <label htmlFor="pickupDate" className="block text-sm font-medium text-gray-700 mb-2">
                       Pickup Date *
                     </label>
-                    <input
-                      type="date"
-                      id="pickupDate"
-                      name="pickupDate"
-                      required
-                      min={minDateString}
-                      max={maxDateString}
-                      value={pickupDate}
-                      onChange={(e) => setPickupDate(e.target.value)}
+                    <DatePicker
+                      selected={pickupDate}
+                      onChange={(date: Date | null) => setPickupDate(date)}
+                      minDate={minDate}
+                      maxDate={maxDate}
+                      filterDate={(date: Date) => !isDateBlocked(date)}
+                      dateFormat="MMMM d, yyyy"
+                      placeholderText="Select a date"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                      required
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Select a date at least 2 days in advance (up to one month)
+                      Select a date at least 2 days in advance (up to one month). Blocked dates are greyed out.
                     </p>
                   </div>
                   
@@ -272,7 +315,7 @@ export default function CheckoutPage() {
                   <div className="pt-3 border-t">
                     <p className="text-sm text-gray-600">Scheduled Pickup</p>
                     <p className="text-base font-semibold text-gray-900">
-                      {new Date(pickupDate).toLocaleDateString("en-US", {
+                      {pickupDate.toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",

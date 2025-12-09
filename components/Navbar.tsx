@@ -21,8 +21,20 @@ export default function Navbar() {
               Products
             </Link>
             <Link
+              href="/about"
+              className="text-gray-700 hover:text-brown-600 transition-colors"
+            >
+              About Us
+            </Link>
+            <Link
+              href="/gallery"
+              className="text-gray-700 hover:text-brown-600 transition-colors"
+            >
+              Gallery
+            </Link>
+            <Link
               href="/cart"
-              className="relative text-gray-700 hover:text-blue-600 transition-colors"
+              className="relative text-gray-700 hover:text-brown-600 transition-colors"
             >
               Cart
               {getTotalItems() > 0 && (
@@ -30,6 +42,12 @@ export default function Navbar() {
                   {getTotalItems()}
                 </span>
               )}
+            </Link>
+            <Link
+              href="/admin"
+              className="text-gray-700 hover:text-brown-600 transition-colors"
+            >
+              Admin
             </Link>
           </div>
         </div>

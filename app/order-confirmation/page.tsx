@@ -4,13 +4,35 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
-import { Order } from "@/types/product";
+import { Order, Product } from "@/types/product";
 
 function OrderConfirmationContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("id");
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+
+  // Fetch all products to get bread names for mini loaf boxes
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch("/api/products");
+        if (response.ok) {
+          const data = await response.json();
+          setAllProducts(data);
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  const getBreadName = (breadId: string) => {
+    const bread = allProducts.find((p) => p.id === breadId);
+    return bread?.name || breadId;
+  };
 
   useEffect(() => {
     async function fetchOrder() {
@@ -134,6 +156,33 @@ function OrderConfirmationContent() {
                 <p className="text-lg font-semibold text-gray-900">{order.pickupTime}</p>
               </div>
             )}
+            <div className="border-t pt-4 mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">Items:</p>
+              <div className="space-y-2">
+                {order.items.map((item, index) => (
+                  <div key={index} className="text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-900">
+                        {item.product.name} × {item.quantity}
+                      </span>
+                      <span className="text-gray-900">
+                        ${(item.product.price * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                    {item.product.isMiniLoafBox && item.selectedBreads && item.selectedBreads.length > 0 && (
+                      <div className="ml-4 mt-1 text-xs text-gray-600">
+                        <p className="font-medium mb-1">Selected Breads:</p>
+                        <ul className="list-disc list-inside">
+                          {item.selectedBreads.map((breadId, idx) => (
+                            <li key={idx}>{getBreadName(breadId)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="border-t pt-4">
               <div className="flex justify-between mb-2">
                 <span className="text-gray-600">Total</span>

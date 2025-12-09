@@ -100,6 +100,15 @@ export const products: Product[] = [
     image: "/images/PlainBread.JPEG",
     category: "Bread",
     inStock: true,
-  }
+  },
+  {
+    id: "12",
+    name: "Cookies!",
+    description: "Big yunners",
+    price: 7,
+    image: "",
+    category: "Bakery Items",
+    inStock: true,
+  },
 ];
 
