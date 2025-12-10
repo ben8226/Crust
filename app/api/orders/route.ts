@@ -32,9 +32,19 @@ export async function POST(request: Request) {
       );
     }
 
+    // Generate a 5-character alphanumeric order ID
+    const generateOrderId = () => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing characters like 0, O, 1, I
+      let id = '';
+      for (let i = 0; i < 5; i++) {
+        id += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return id;
+    };
+
     // Create order object
     const order: Order = {
-      id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateOrderId(),
       items: body.items,
       customerName: body.customerName,
       phone: body.phone,

@@ -122,43 +122,65 @@ function OrderConfirmationContent() {
           </div>
 
           <div className="bg-tan-200 rounded-lg p-6 mb-6 text-left">
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">Order Number</p>
-              <p className="text-lg font-semibold text-gray-900">{order.id}</p>
-            </div>
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">Order Date</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {new Date(order.date).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">Contact Information</p>
-              <p className="text-lg font-semibold text-gray-900">{order.customerName}</p>
-              <p className="text-gray-700">Phone: {order.phone}</p>
-            </div>
-            {order.paymentMethod && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">Payment Method</p>
-                <p className="text-lg font-semibold text-gray-900 capitalize">
-                  {order.paymentMethod === "cash" ? "Cash (at pickup)" : "Venmo (pre-pay)"}
-                </p>
-              </div>
-            )}
+            {/* Pickup Date/Time - Prominently at top, centered */}
             {order.pickupDate && order.pickupTime && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">Scheduled Pickup</p>
-                <p className="text-lg font-semibold text-gray-900">
+              <div className="text-center mb-6 pb-6 border-b border-brown-300">
+                <p className="text-sm text-gray-600 mb-1">Scheduled Pickup</p>
+                <p className="text-2xl font-bold text-brown-700">
                   {new Date(order.pickupDate).toLocaleDateString("en-US", {
                     weekday: "long",
-                    year: "numeric",
                     month: "long",
                     day: "numeric",
                   })}
                 </p>
-                <p className="text-lg font-semibold text-gray-900">{order.pickupTime}</p>
+                <p className="text-xl font-semibold text-brown-600 mb-3">{order.pickupTime}</p>
+                {process.env.NEXT_PUBLIC_PICKUP_ADDRESS && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600 mb-1">Pickup Location</p>
+                    <a
+                      href={`https://maps.apple.com/?address=${encodeURIComponent(process.env.NEXT_PUBLIC_PICKUP_ADDRESS)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-base font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      {process.env.NEXT_PUBLIC_PICKUP_ADDRESS}
+                    </a>
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Order details in 2 columns */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-sm text-gray-600">Order Number</p>
+                <p className="text-lg font-semibold text-gray-900">{order.id}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Order Date</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {new Date(order.date).toLocaleDateString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Contact</p>
+                <p className="text-lg font-semibold text-gray-900">{order.customerName}</p>
+                <p className="text-sm text-gray-700">{order.phone}</p>
+              </div>
+              {order.paymentMethod && (
+                <div>
+                  <p className="text-sm text-gray-600">Payment</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {order.paymentMethod === "cash" ? "Cash (at pickup)" : "Venmo (pre-pay)"}
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="border-t pt-4 mb-4">
               <p className="text-sm font-medium text-gray-700 mb-3">Items:</p>
               <div className="space-y-2">
@@ -195,6 +217,48 @@ function OrderConfirmationContent() {
               </div>
             </div>
           </div>
+
+          {/* Venmo Payment Section - Only shows for Venmo orders */}
+          {order.paymentMethod === "venmo" && (() => {
+            // Build Venmo payment note with order details
+            const itemsList = order.items.map(item => `${item.product.name} x${item.quantity}`).join(", ");
+            const pickupInfo = order.pickupDate && order.pickupTime 
+              ? `Pickup: ${new Date(order.pickupDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} @ ${order.pickupTime}`
+              : "";
+            const venmoNote = encodeURIComponent(`Order #${order.id} | ${itemsList}${pickupInfo ? ` | ${pickupInfo}` : ""}`);
+            
+            return (
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+                <div className="flex items-center justify-center mb-4">
+                  <svg 
+                    className="w-10 h-10 text-blue-500 mr-2" 
+                    viewBox="0 0 24 24" 
+                    fill="currentColor"
+                  >
+                    <path d="M19.5 3c.828 0 1.5.672 1.5 1.5v15c0 .828-.672 1.5-1.5 1.5h-15c-.828 0-1.5-.672-1.5-1.5v-15c0-.828.672-1.5 1.5-1.5h15zm-2.037 4.5c-.166-.532-.65-.875-1.268-.875-.885 0-1.683.586-2.185 1.516l-2.01 3.73-.5-3.73c-.1-.748-.65-1.39-1.434-1.39-1.017 0-1.684.874-1.684 1.764 0 .166.017.35.067.532l1.2 5.51c.133.616.566 1.19 1.317 1.19.85 0 1.534-.49 1.934-1.206l4.38-7.54c.066-.117.1-.25.1-.367 0-.067-.017-.134-.05-.2l.133.066z"/>
+                  </svg>
+                  <h3 className="text-xl font-bold text-blue-700">Pay with Venmo</h3>
+                </div>
+                <p className="text-gray-700 mb-4">
+                  Please complete your payment of <span className="font-bold text-blue-700">${order.total.toFixed(2)}</span> via Venmo to confirm your order.
+                </p>
+                <a
+                  href={`https://venmo.com/?txn=pay&recipients=${process.env.NEXT_PUBLIC_VENMO_USERNAME || "CrustandCulture"}&amount=${order.total.toFixed(2)}&note=${venmoNote}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-blue-500 text-white py-4 rounded-lg hover:bg-blue-600 transition-colors font-bold text-lg text-center mb-3"
+                >
+                  Pay ${order.total.toFixed(2)} on Venmo
+                </a>
+                <p className="text-sm text-gray-600 text-center">
+                  <span className="font-semibold">@{process.env.NEXT_PUBLIC_VENMO_USERNAME || "CrustandCulture"}</span>
+                </p>
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  Include your order number <span className="font-mono font-semibold">{order.id}</span> in the payment note
+                </p>
+              </div>
+            );
+          })()}
 
           <div className="space-y-3">
             <Link
