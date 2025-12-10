@@ -8,6 +8,7 @@ import { Order, Product } from "@/types/product";
 export default function OrderStatusPage() {
   const [searchName, setSearchName] = useState("");
   const [searchPhone, setSearchPhone] = useState("");
+  const [searchOrderId, setSearchOrderId] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -64,8 +65,11 @@ export default function OrderStatusPage() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!searchName.trim() || !searchPhone.trim()) {
-      alert("Please enter both your name and phone number to search for orders");
+    const hasOrderId = !!searchOrderId.trim();
+    const hasNamePhone = !!searchName.trim() && !!searchPhone.trim();
+
+    if (!hasOrderId && !hasNamePhone) {
+      alert("Enter an order number, or your exact name and phone number.");
       return;
     }
 
@@ -81,15 +85,25 @@ export default function OrderStatusPage() {
 
       if (ordersResponse.ok) {
         const allOrders: Order[] = await ordersResponse.json();
-        const normalizedSearchPhone = normalizePhone(searchPhone);
-        
-        // Filter orders by exact match on name (case-insensitive) AND phone number
-        const matchingOrders = allOrders.filter((order) => {
-          const nameMatch = order.customerName.toLowerCase().trim() === searchName.toLowerCase().trim();
-          const phoneMatch = normalizePhone(order.phone) === normalizedSearchPhone;
-          return nameMatch && phoneMatch;
-        });
-        
+
+        let matchingOrders: Order[] = [];
+
+        if (hasOrderId) {
+          const targetId = searchOrderId.trim().toUpperCase();
+          matchingOrders = allOrders.filter(
+            (order) => order.id.toUpperCase() === targetId
+          );
+        } else if (hasNamePhone) {
+          const normalizedSearchPhone = normalizePhone(searchPhone);
+          matchingOrders = allOrders.filter((order) => {
+            const nameMatch =
+              order.customerName.toLowerCase().trim() ===
+              searchName.toLowerCase().trim();
+            const phoneMatch = normalizePhone(order.phone) === normalizedSearchPhone;
+            return nameMatch && phoneMatch;
+          });
+        }
+
         // Sort by date (newest first)
         matchingOrders.sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -116,13 +130,24 @@ export default function OrderStatusPage() {
         <div className="mb-8 text-center">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Order Status</h1>
           <p className="text-gray-600">
-            Enter your name and phone number to view your order history
+            Search by Order Number, or by your exact Name and Phone Number
           </p>
         </div>
 
         {/* Search Form */}
         <form onSubmit={handleSearch} className="mb-8">
           <div className="max-w-xl mx-auto space-y-3">
+            <input
+              type="text"
+              value={searchOrderId}
+              onChange={(e) => setSearchOrderId(e.target.value)}
+              placeholder="Enter order number (e.g., H7K3M)..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent text-lg"
+            />
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span className="font-medium text-gray-700">OR</span>
+              <span>search by your exact name and phone number</span>
+            </div>
             <input
               type="text"
               value={searchName}
@@ -139,7 +164,10 @@ export default function OrderStatusPage() {
             />
             <button
               type="submit"
-              disabled={isSearching || !searchName.trim() || !searchPhone.trim()}
+              disabled={
+                isSearching ||
+                (!searchOrderId.trim() && (!searchName.trim() || !searchPhone.trim()))
+              }
               className="w-full px-6 py-3 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSearching ? "Searching..." : "Search Orders"}
@@ -156,7 +184,7 @@ export default function OrderStatusPage() {
                   No orders found
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
-                  Make sure you enter the exact name and phone number used when placing your order.
+                  Make sure you enter the order number, or the exact name and phone number used when placing your order.
                 </p>
               </div>
             ) : (

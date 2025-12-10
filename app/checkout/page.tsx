@@ -300,7 +300,7 @@ export default function CheckoutPage() {
                         {item.product.name} x{item.quantity}
                       </span>
                       <span className="text-gray-900">
-                        ${(item.product.price * item.quantity + (item.cut ? item.quantity : 0)).toFixed(2)}
+                        ${(item.product.price * item.quantity).toFixed(2)}
                       </span>
                     </div>
                     {item.cut && (
