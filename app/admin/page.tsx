@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [updatingProducts, setUpdatingProducts] = useState<Set<string>>(new Set());
+  const [deletingProducts, setDeletingProducts] = useState<Set<string>>(new Set());
   const [showNewProductForm, setShowNewProductForm] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: "",
@@ -236,6 +237,38 @@ export default function AdminPage() {
       setUpdatingProducts((prev) => {
         const next = new Set(prev);
         next.delete("new");
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeletingProducts((prev) => new Set(prev).add(productId));
+      
+      const response = await fetch(`/api/products/${productId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setProducts((prev) => prev.filter((p) => p.id !== productId));
+        if (editingProduct?.id === productId) {
+          setEditingProduct(null);
+        }
+      } else {
+        alert("Failed to delete product");
+      }
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      alert("Error deleting product");
+    } finally {
+      setDeletingProducts((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
         return next;
       });
     }
@@ -1043,6 +1076,13 @@ export default function AdminPage() {
                           >
                             Cancel
                           </button>
+                          <button
+                            onClick={() => handleDeleteProduct(product.id)}
+                            disabled={deletingProducts.has(product.id)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                          >
+                            {deletingProducts.has(product.id) ? "Deleting..." : "Delete"}
+                          </button>
                         </div>
                       </div>
                     ) : (
@@ -1067,12 +1107,21 @@ export default function AdminPage() {
                             ${product.price.toFixed(2)}
                           </p>
                         </div>
-                        <button
-                          onClick={() => handleProductEdit(product)}
-                          className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors"
-                        >
-                          Edit
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleProductEdit(product)}
+                            className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(product.id)}
+                            disabled={deletingProducts.has(product.id)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                          >
+                            {deletingProducts.has(product.id) ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
