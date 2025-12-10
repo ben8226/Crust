@@ -160,7 +160,7 @@ export default function CartPage() {
                         onChange={() => toggleCut(item.product.id)}
                         className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
                       />
-                      <span>Slice bread (+$1)</span>
+                      <span>Pre-sliced (+$1)</span>
                     </label>
                   )}
                 </div>
