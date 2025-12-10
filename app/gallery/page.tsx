@@ -1,53 +1,47 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Image from "next/image";
 
-interface GalleryImage {
-  id: string;
-  url: string;
-  title?: string;
-  description?: string;
-  date?: string;
-}
+// Static gallery images from public/images/Gallery folder
+const galleryImages = [
+  "/images/Gallery/FullSizeRender(17).JPEG",
+  "/images/Gallery/FullSizeRender(18).JPEG",
+  "/images/Gallery/FullSizeRender(19).JPEG",
+  "/images/Gallery/IMG_4606(1).JPEG",
+  "/images/Gallery/IMG_4698.JPEG",
+  "/images/Gallery/IMG_4818.JPEG",
+  "/images/Gallery/IMG_4844.JPEG",
+  "/images/Gallery/IMG_5040.JPEG",
+  "/images/Gallery/IMG_5111.JPEG",
+  "/images/Gallery/IMG_5147.JPEG",
+  "/images/Gallery/IMG_5159.JPEG",
+  "/images/Gallery/IMG_5181.JPEG",
+  "/images/Gallery/IMG_5196.JPEG",
+  "/images/Gallery/IMG_5270.JPEG",
+  "/images/Gallery/IMG_5334.JPEG",
+  "/images/Gallery/IMG_5417.JPEG",
+  "/images/Gallery/IMG_5519.JPEG",
+  "/images/Gallery/IMG_5521.JPEG",
+  "/images/Gallery/IMG_5557.JPEG",
+  "/images/Gallery/IMG_5566.JPEG",
+  "/images/Gallery/IMG_5574.JPEG",
+  "/images/Gallery/IMG_5578.JPEG",
+  "/images/Gallery/IMG_5693.JPEG",
+  "/images/Gallery/IMG_5697.JPEG",
+  "/images/Gallery/IMG_5725.JPEG",
+  "/images/Gallery/IMG_5783.JPEG",
+  "/images/Gallery/IMG_5787.JPEG",
+  "/images/Gallery/IMG_5801.JPEG",
+  "/images/Gallery/IMG_5811.JPEG",
+  "/images/Gallery/IMG_5819.JPEG",
+  "/images/Gallery/IMG_5841.JPG",
+];
 
 export default function GalleryPage() {
-  const [images, setImages] = useState<GalleryImage[]>([]);
-  const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Fetch gallery images from API
-    const fetchImages = async () => {
-      try {
-        const response = await fetch("/api/gallery");
-        if (response.ok) {
-          const data = await response.json();
-          setImages(data);
-        }
-      } catch (error) {
-        console.error("Error fetching gallery images:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchImages();
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-tan-200">
-        <Navbar />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center">
-            <p className="text-gray-600">Loading gallery...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-tan-200">
@@ -60,99 +54,49 @@ export default function GalleryPage() {
           </p>
         </div>
 
-        {images.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <p className="text-gray-600 mb-4">No gallery images yet.</p>
-            <p className="text-sm text-gray-500">
-              Images will appear here once they&apos;re added to the gallery.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {images.map((image) => (
-              <div
-                key={image.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
-                onClick={() => setSelectedImage(image)}
-              >
-                <div className="relative h-64 w-full bg-gray-200">
-                  <Image
-                    src={image.url}
-                    alt={image.title || "Gallery image"}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                  />
-                </div>
-                {(image.title || image.description) && (
-                  <div className="p-4">
-                    {image.title && (
-                      <h3 className="font-semibold text-gray-900 mb-1">
-                        {image.title}
-                      </h3>
-                    )}
-                    {image.description && (
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {image.description}
-                      </p>
-                    )}
-                    {image.date && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        {new Date(image.date).toLocaleDateString("en-US", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </p>
-                    )}
-                  </div>
-                )}
+        {/* Masonry/Collage Grid */}
+        <div className="columns-2 md:columns-3 lg:columns-4 gap-3 space-y-3">
+          {galleryImages.map((image, index) => (
+            <div
+              key={index}
+              className="break-inside-avoid relative group cursor-pointer overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
+              onClick={() => setSelectedImage(image)}
+            >
+              <div className="relative">
+                <Image
+                  src={image}
+                  alt={`Gallery image ${index + 1}`}
+                  width={400}
+                  height={index % 3 === 0 ? 600 : index % 2 === 0 ? 400 : 500}
+                  className="w-full h-auto object-cover"
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                />
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300" />
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
 
         {/* Image Modal */}
         {selectedImage && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
             onClick={() => setSelectedImage(null)}
           >
             <div
-              className="max-w-4xl w-full bg-white rounded-lg overflow-hidden"
+              className="max-w-5xl w-full max-h-[90vh] relative"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="relative h-[70vh] w-full bg-gray-200">
+              <div className="relative w-full h-[85vh]">
                 <Image
-                  src={selectedImage.url}
-                  alt={selectedImage.title || "Gallery image"}
+                  src={selectedImage}
+                  alt="Gallery image"
                   fill
                   className="object-contain"
                   sizes="100vw"
                 />
               </div>
-              {(selectedImage.title || selectedImage.description) && (
-                <div className="p-6">
-                  {selectedImage.title && (
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      {selectedImage.title}
-                    </h2>
-                  )}
-                  {selectedImage.description && (
-                    <p className="text-gray-700 mb-2">
-                      {selectedImage.description}
-                    </p>
-                  )}
-                  {selectedImage.date && (
-                    <p className="text-sm text-gray-500">
-                      {new Date(selectedImage.date).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </p>
-                  )}
-                </div>
-              )}
               <button
                 onClick={() => setSelectedImage(null)}
                 className="absolute top-4 right-4 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 transition-colors"
