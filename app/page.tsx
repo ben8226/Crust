@@ -1,4 +1,5 @@
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import { getProducts } from "@/lib/db";
 import { products as staticProducts } from "@/data/products";
@@ -74,14 +75,6 @@ export default async function Home() {
     <div className="min-h-screen bg-tan-200">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-            
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600">
-            These products are homemade and not subject to state inspection.  Minnesota Cottage Food Producer License #20273109
-          </p>
-        </div>
         {products.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-600">No products available at the moment.</p>
@@ -106,6 +99,7 @@ export default async function Home() {
             ))}
           </div>
         )}
+        <Footer />
       </main>
     </div>
   );

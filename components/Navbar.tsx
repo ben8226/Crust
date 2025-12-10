@@ -68,7 +68,7 @@ export default function Navbar() {
               href="/"
               className="text-gray-700 hover:text-brown-600 transition-colors text-sm lg:text-base"
             >
-              Products
+              Order Online
             </Link>
             <Link
               href="/about"
@@ -86,7 +86,7 @@ export default function Navbar() {
               href="/cart"
               className="relative text-gray-700 hover:text-brown-600 transition-colors text-sm lg:text-base"
             >
-              Cart
+              Checkout
               {getTotalItems() > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {getTotalItems()}
@@ -140,7 +140,7 @@ export default function Navbar() {
               onClick={() => setIsMenuOpen(false)}
               className="block text-gray-700 hover:text-brown-600 transition-colors py-2"
             >
-              Products
+              Order Online
             </Link>
             <Link
               href="/about"

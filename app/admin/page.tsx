@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
@@ -1506,6 +1507,7 @@ export default function AdminPage() {
             )}
           </>
         )}
+        <Footer />
       </main>
     </div>
   );

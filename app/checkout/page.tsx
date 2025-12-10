@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useCart } from "@/contexts/CartContext";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DatePicker from "react-datepicker";
@@ -147,6 +148,7 @@ export default function CheckoutPage() {
               Continue Shopping
             </Link>
           </div>
+          <Footer />
         </main>
       </div>
     );
@@ -334,6 +336,7 @@ export default function CheckoutPage() {
             </div>
           </div>
         </div>
+        <Footer />
       </main>
     </div>
   );

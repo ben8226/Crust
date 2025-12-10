@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useCart } from "@/contexts/CartContext";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import Link from "next/link";
 import Image from "next/image";
 import { Product } from "@/types/product";
@@ -61,13 +62,14 @@ export default function CartPage() {
               Continue Shopping
             </Link>
           </div>
+          <Footer />
         </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-tan-50">
+    <div className="min-h-screen bg-tan-200">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-8">Shopping Cart</h1>
@@ -219,6 +221,7 @@ export default function CartPage() {
             </div>
           </div>
         </div>
+        <Footer />
       </main>
     </div>
   );

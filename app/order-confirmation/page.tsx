@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Order, Product } from "@/types/product";
 
@@ -68,6 +69,7 @@ function OrderConfirmationContent() {
           <div className="text-center">
             <p className="text-gray-600">Loading order details...</p>
           </div>
+          <Footer />
         </main>
       </div>
     );
@@ -88,6 +90,7 @@ function OrderConfirmationContent() {
               Continue Shopping
             </Link>
           </div>
+          <Footer />
         </main>
       </div>
     );
@@ -205,6 +208,7 @@ function OrderConfirmationContent() {
             </p>
           </div>
         </div>
+        <Footer />
       </main>
     </div>
   );
@@ -219,6 +223,7 @@ export default function OrderConfirmationPage() {
           <div className="text-center">
             <p className="text-gray-600">Loading...</p>
           </div>
+          <Footer />
         </main>
       </div>
     }>
