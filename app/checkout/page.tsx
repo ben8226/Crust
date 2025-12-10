@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { formatDateInput } from "@/lib/date";
 
 export default function CheckoutPage() {
   const { cart, getTotalPrice, clearCart } = useCart();
@@ -49,14 +50,14 @@ export default function CheckoutPage() {
 
   // Check if a date is blocked (for DatePicker filterDate)
   const isDateBlocked = (date: Date) => {
-    const dateString = date.toISOString().split("T")[0];
+    const dateString = formatDateInput(date);
     return blockedDates.includes(dateString);
   };
 
-  // Convert Date to string for form submission
+  // Convert Date to string for form submission (local, no UTC shift)
   const getDateString = (date: Date | null): string => {
     if (!date) return "";
-    return date.toISOString().split("T")[0];
+    return formatDateInput(date);
   };
 
   // Load payment method from localStorage on mount

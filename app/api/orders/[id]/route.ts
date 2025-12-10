@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOrderById, updateOrder } from "@/lib/db";
+import { getOrderById, updateOrder, deleteOrder } from "@/lib/db";
 import { Order } from "@/types/product";
 
 export async function GET(
@@ -44,19 +44,6 @@ export async function PATCH(
       }
     }
 
-    // Allow updating cancelled status
-    if (typeof body.cancelled === "boolean") {
-      updates.cancelled = body.cancelled;
-      if (body.cancelled) {
-        updates.cancelledDate = new Date().toISOString();
-        // If cancelling, also mark as not completed
-        updates.completed = false;
-        updates.completedDate = undefined;
-      } else {
-        updates.cancelledDate = undefined;
-      }
-    }
-
     const updatedOrder = await updateOrder(params.id, updates);
 
     if (!updatedOrder) {
@@ -71,6 +58,30 @@ export async function PATCH(
     console.error("Error updating order:", error);
     return NextResponse.json(
       { error: "Failed to update order" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const success = await deleteOrder(params.id);
+
+    if (!success) {
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error("Error deleting order:", error);
+    return NextResponse.json(
+      { error: "Failed to delete order" },
       { status: 500 }
     );
   }

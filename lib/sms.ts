@@ -1,4 +1,5 @@
 import { Order } from "@/types/product";
+import { formatPickupDisplay } from "./date";
 import twilio from "twilio";
 
 // Format phone number for Twilio (E.164 format)
@@ -35,12 +36,11 @@ function formatOrderItems(order: Order): string {
 // Format pickup date/time for SMS
 function formatPickupDateTime(order: Order): string {
   if (order.pickupDate && order.pickupTime) {
-    const date = new Date(order.pickupDate);
-    const formattedDate = date.toLocaleDateString("en-US", {
+    const formattedDate = formatPickupDisplay(order.pickupDate, {
       weekday: "short",
       month: "short",
       day: "numeric",
-    });
+    }) || order.pickupDate;
     return `${formattedDate} at ${order.pickupTime}`;
   }
   return "TBD";

@@ -7,10 +7,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
+import { UpdateEntry } from "@/types/update";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
+import { formatDateInput, formatPickupDisplay, parseLocalDateString } from "@/lib/date";
 
-type Tab = "orders" | "products" | "calendar" | "gallery" | "analytics";
+type Tab = "orders" | "products" | "calendar" | "gallery" | "analytics" | "updates";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -23,6 +25,14 @@ export default function AdminPage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending" | "completed" | "cancelled">("all");
   const [updatingOrders, setUpdatingOrders] = useState<Set<string>>(new Set());
+  const [deletingOrders, setDeletingOrders] = useState<Set<string>>(new Set());
+
+  // Updates state
+  const [updates, setUpdates] = useState<UpdateEntry[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(true);
+  const [newUpdate, setNewUpdate] = useState({ version: "", description: "", date: "" });
+  const [savingUpdate, setSavingUpdate] = useState(false);
+  const [deletingUpdates, setDeletingUpdates] = useState<Set<string>>(new Set());
   
   // Products state
   const [products, setProducts] = useState<Product[]>([]);
@@ -119,6 +129,8 @@ export default function AdminPage() {
     } else if (activeTab === "analytics") {
       fetchOrders();
       fetchProducts();
+    } else if (activeTab === "updates") {
+      fetchUpdates();
     }
   }, [activeTab]);
 
@@ -138,6 +150,24 @@ export default function AdminPage() {
       console.error("Error fetching orders:", error);
     } finally {
       setOrdersLoading(false);
+    }
+  };
+
+  const fetchUpdates = async () => {
+    try {
+      setUpdatesLoading(true);
+      const response = await fetch("/api/updates");
+      if (response.ok) {
+        const data = await response.json();
+        const sorted = data.sort(
+          (a: UpdateEntry, b: UpdateEntry) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setUpdates(sorted);
+      }
+    } catch (error) {
+      console.error("Error fetching updates:", error);
+    } finally {
+      setUpdatesLoading(false);
     }
   };
 
@@ -173,6 +203,95 @@ export default function AdminPage() {
       setUpdatingOrders((prev) => {
         const next = new Set(prev);
         next.delete(orderId);
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("Delete this order permanently? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeletingOrders((prev) => new Set(prev).add(orderId));
+
+      const response = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
+
+      if (response.ok) {
+        setOrders((prev) => prev.filter((order) => order.id !== orderId));
+      } else {
+        const error = await response.json().catch(() => null);
+        alert(error?.error || "Failed to delete order");
+      }
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      alert("Error deleting order");
+    } finally {
+      setDeletingOrders((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
+    }
+  };
+
+  const handleAddUpdate = async () => {
+    if (!newUpdate.version || !newUpdate.description || !newUpdate.date) {
+      alert("Please provide version, description, and date.");
+      return;
+    }
+
+    try {
+      setSavingUpdate(true);
+      const response = await fetch("/api/updates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUpdate),
+      });
+
+      if (response.ok) {
+        const created = await response.json();
+        setUpdates((prev) =>
+          [...prev, created].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )
+        );
+        setNewUpdate({ version: "", description: "", date: "" });
+      } else {
+        const error = await response.json().catch(() => null);
+        alert(error?.error || "Failed to add update");
+      }
+    } catch (error) {
+      console.error("Error adding update:", error);
+      alert("Error adding update");
+    } finally {
+      setSavingUpdate(false);
+    }
+  };
+
+  const handleDeleteUpdate = async (updateId: string) => {
+    if (!confirm("Delete this update entry? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeletingUpdates((prev) => new Set(prev).add(updateId));
+      const response = await fetch(`/api/updates/${updateId}`, { method: "DELETE" });
+
+      if (response.ok) {
+        setUpdates((prev) => prev.filter((u) => u.id !== updateId));
+      } else {
+        const error = await response.json().catch(() => null);
+        alert(error?.error || "Failed to delete update");
+      }
+    } catch (error) {
+      console.error("Error deleting update:", error);
+      alert("Error deleting update");
+    } finally {
+      setDeletingUpdates((prev) => {
+        const next = new Set(prev);
+        next.delete(updateId);
         return next;
       });
     }
@@ -398,17 +517,17 @@ export default function AdminPage() {
   };
 
   const formatDateString = (date: Date) => {
-    return date.toISOString().split("T")[0];
+    return formatDateInput(date);
   };
 
   const getOrdersForDate = (date: Date) => {
     const dateStr = formatDateString(date);
-    return orders.filter(
-      (order) =>
-        !order.completed &&
-        order.pickupDate &&
-        formatDateString(new Date(order.pickupDate)) === dateStr
-    );
+    return orders.filter((order) => {
+      if (order.completed || !order.pickupDate) return false;
+      const parsedPickup = parseLocalDateString(order.pickupDate);
+      if (!parsedPickup) return false;
+      return formatDateString(parsedPickup) === dateStr;
+    });
   };
 
   const navigateMonth = (direction: "prev" | "next") => {
@@ -665,6 +784,16 @@ export default function AdminPage() {
                   >
                     Analytics
                   </button>
+                  <button
+                    onClick={() => setActiveTab("updates")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "updates"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Updates
+                  </button>
                 </div>
               </div>
 
@@ -781,23 +910,34 @@ export default function AdminPage() {
                               })}
                             </p>
                           </div>
-                          {!order.cancelled && (
+                          <div className="flex items-center gap-2">
+                            {!order.cancelled && (
+                              <button
+                                onClick={() => toggleOrderCompleted(order.id, order.completed || false)}
+                                disabled={updatingOrders.has(order.id) || deletingOrders.has(order.id)}
+                                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                  order.completed
+                                    ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                    : "bg-green-600 text-white hover:bg-green-700"
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                              >
+                                {updatingOrders.has(order.id)
+                                  ? "Updating..."
+                                  : order.completed
+                                  ? "Mark as Pending"
+                                  : "Mark as Completed"}
+                              </button>
+                            )}
                             <button
-                              onClick={() => toggleOrderCompleted(order.id, order.completed || false)}
-                              disabled={updatingOrders.has(order.id)}
-                              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                                order.completed
-                                  ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                  : "bg-green-600 text-white hover:bg-green-700"
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                              onClick={() => handleDeleteOrder(order.id)}
+                              disabled={deletingOrders.has(order.id) || updatingOrders.has(order.id)}
+                              title="Delete order"
+                              aria-label="Delete order"
+                              className="h-9 w-9 flex items-center justify-center rounded-full font-bold transition-colors bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              {updatingOrders.has(order.id)
-                                ? "Updating..."
-                                : order.completed
-                                ? "Mark as Pending"
-                                : "Mark as Completed"}
+                              {deletingOrders.has(order.id) ? "…" : "×"}
                             </button>
-                          )}
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -818,7 +958,7 @@ export default function AdminPage() {
                             <div>
                               <p className="text-sm font-medium text-gray-600">Pickup</p>
                               <p className="text-gray-900">
-                                {new Date(order.pickupDate).toLocaleDateString("en-US", {
+                                {formatPickupDisplay(order.pickupDate, {
                                   weekday: "short",
                                   month: "short",
                                   day: "numeric",
@@ -1837,6 +1977,105 @@ export default function AdminPage() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Updates Tab */}
+        {activeTab === "updates" && (
+          <>
+            {updatesLoading ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">Loading updates...</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Post a New Update</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Version</label>
+                      <input
+                        type="text"
+                        value={newUpdate.version}
+                        onChange={(e) => setNewUpdate((prev) => ({ ...prev, version: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="e.g., 1.2.0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={newUpdate.date}
+                        onChange={(e) => setNewUpdate((prev) => ({ ...prev, date: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={handleAddUpdate}
+                        disabled={savingUpdate}
+                        className="w-full bg-brown-600 text-white px-4 py-2 rounded-lg hover:bg-brown-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {savingUpdate ? "Saving..." : "Add Update"}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                      value={newUpdate.description}
+                      onChange={(e) => setNewUpdate((prev) => ({ ...prev, description: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      rows={4}
+                      placeholder="What changed?"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold text-gray-900">Recent Updates</h2>
+                    <span className="text-sm text-gray-600">{updates.length} total</span>
+                  </div>
+                  {updates.length === 0 ? (
+                    <p className="text-gray-600">No updates posted yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {updates.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-3 py-1 rounded-full bg-brown-100 text-brown-800 text-sm font-semibold">
+                                v{entry.version}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                {new Date(entry.date).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-gray-800 whitespace-pre-line">{entry.description}</p>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteUpdate(entry.id)}
+                            disabled={deletingUpdates.has(entry.id)}
+                            className="self-start sm:self-auto px-3 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {deletingUpdates.has(entry.id) ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

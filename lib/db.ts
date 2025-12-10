@@ -1,4 +1,5 @@
 import { Product, Order } from "@/types/product";
+import { UpdateEntry } from "@/types/update";
 
 // Lazy load Upstash Redis to avoid build-time errors
 async function getRedis() {
@@ -134,6 +135,108 @@ export async function updateOrder(orderId: string, updates: Partial<Order>): Pro
     return null;
   } catch (error) {
     console.error("Error updating order:", error);
+    throw error;
+  }
+}
+
+// Delete order
+export async function deleteOrder(orderId: string): Promise<boolean> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.error("✗ Upstash Redis not configured. Cannot delete order.");
+      throw new Error("Redis not configured");
+    }
+
+    const orders = await getOrders();
+    const filtered = orders.filter((order) => order.id !== orderId);
+
+    if (filtered.length === orders.length) {
+      console.warn(`Order ${orderId} not found for deletion`);
+      return false;
+    }
+
+    console.log(`Deleting order ${orderId}. New total: ${filtered.length}`);
+    await redis.set('orders', filtered);
+    return true;
+  } catch (error) {
+    console.error("Error deleting order:", error);
+    throw error;
+  }
+}
+
+// Updates helpers
+export async function getUpdates(): Promise<UpdateEntry[]> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.warn("Redis not available, returning empty updates array");
+      return [];
+    }
+    const updates = await redis.get<UpdateEntry[]>('updates');
+    console.log(`✓ Retrieved ${updates?.length || 0} updates from Redis`);
+    return updates || [];
+  } catch (error) {
+    console.error("Error reading updates from Redis:", error);
+    return [];
+  }
+}
+
+function generateUpdateId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = '';
+  for (let i = 0; i < 6; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
+}
+
+export async function addUpdate(entry: Omit<UpdateEntry, "id">): Promise<UpdateEntry> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.error("✗ Upstash Redis not configured. Cannot add update.");
+      throw new Error("Redis not configured");
+    }
+
+    const updates = await getUpdates();
+    const newEntry: UpdateEntry = {
+      ...entry,
+      id: generateUpdateId(),
+    };
+
+    updates.push(newEntry);
+    updates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    console.log(`Saving ${updates.length} updates to Redis (including new update: ${newEntry.id})`);
+    await redis.set('updates', updates);
+    return newEntry;
+  } catch (error) {
+    console.error("Error adding update:", error);
+    throw error;
+  }
+}
+
+export async function deleteUpdate(updateId: string): Promise<boolean> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.error("✗ Upstash Redis not configured. Cannot delete update.");
+      throw new Error("Redis not configured");
+    }
+
+    const updates = await getUpdates();
+    const next = updates.filter((u) => u.id !== updateId);
+
+    if (next.length === updates.length) {
+      console.warn(`Update ${updateId} not found for deletion`);
+      return false;
+    }
+
+    await redis.set('updates', next);
+    return true;
+  } catch (error) {
+    console.error("Error deleting update:", error);
     throw error;
   }
 }

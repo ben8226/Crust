@@ -4,6 +4,7 @@ import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
+import { formatPickupDisplay } from "@/lib/date";
 
 export default function OrderStatusPage() {
   const [searchName, setSearchName] = useState("");
@@ -252,7 +253,7 @@ export default function OrderStatusPage() {
                       <div className="bg-brown-50 rounded-lg p-4 mb-4 text-center">
                         <p className="text-sm text-gray-600 mb-1">Scheduled Pickup</p>
                         <p className="text-lg font-bold text-brown-700">
-                          {new Date(order.pickupDate).toLocaleDateString("en-US", {
+                          {formatPickupDisplay(order.pickupDate, {
                             weekday: "long",
                             month: "long",
                             day: "numeric",

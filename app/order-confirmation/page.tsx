@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Order, Product } from "@/types/product";
+import { formatPickupDisplay } from "@/lib/date";
 
 function OrderConfirmationContent() {
   const searchParams = useSearchParams();
@@ -127,7 +128,7 @@ function OrderConfirmationContent() {
               <div className="text-center mb-6 pb-6 border-b border-brown-300">
                 <p className="text-sm text-gray-600 mb-1">Scheduled Pickup</p>
                 <p className="text-2xl font-bold text-brown-700">
-                  {new Date(order.pickupDate).toLocaleDateString("en-US", {
+                  {formatPickupDisplay(order.pickupDate, {
                     weekday: "long",
                     month: "long",
                     day: "numeric",
@@ -229,9 +230,10 @@ function OrderConfirmationContent() {
             // Build Venmo payment note with order details
             const itemsList = order.items.map(item => `${item.product.name} x${item.quantity}`).join(", ");
             const pickupInfo = order.pickupDate && order.pickupTime 
-              ? `Pickup: ${new Date(order.pickupDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} @ ${order.pickupTime}`
+              ? `Pickup: ${formatPickupDisplay(order.pickupDate, { month: "short", day: "numeric" })} @ ${order.pickupTime}`
               : "";
-            const venmoNote = encodeURIComponent(`Order #${order.id} | ${itemsList}${pickupInfo ? ` | ${pickupInfo}` : ""}`);
+            // Venmo note omits order ID per request; keep items and optional pickup info
+            const venmoNote = encodeURIComponent(`${itemsList}${pickupInfo ? ` | ${pickupInfo}` : ""}`);
             
             return (
               <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
