@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
 
-type Tab = "orders" | "products" | "calendar" | "gallery";
+type Tab = "orders" | "products" | "calendar" | "gallery" | "analytics";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -110,6 +111,9 @@ export default function AdminPage() {
       fetchBlockedDates();
     } else if (activeTab === "gallery") {
       fetchGalleryImages();
+    } else if (activeTab === "analytics") {
+      fetchOrders();
+      fetchProducts();
     }
   }, [activeTab]);
 
@@ -507,6 +511,56 @@ export default function AdminPage() {
   const pendingCount = orders.filter((o) => !o.completed).length;
   const completedCount = orders.filter((o) => o.completed).length;
 
+  // Analytics calculations
+  const productSalesData = useMemo(() => {
+    const salesMap = new Map<string, { name: string; quantity: number; revenue: number }>();
+    
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
+        const productId = item.product.id;
+        const productName = item.product.name;
+        const quantity = item.quantity;
+        const revenue = item.product.price * quantity;
+        
+        if (salesMap.has(productId)) {
+          const existing = salesMap.get(productId)!;
+          existing.quantity += quantity;
+          existing.revenue += revenue;
+        } else {
+          salesMap.set(productId, {
+            name: productName,
+            quantity,
+            revenue,
+          });
+        }
+      });
+    });
+    
+    return Array.from(salesMap.values())
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 20); // Top 20 products
+  }, [orders]);
+
+  const averageOrdersPerDay = useMemo(() => {
+    if (orders.length === 0) return 0;
+    
+    const orderDates = orders.map((order) => {
+      const date = new Date(order.date);
+      return date.toISOString().split("T")[0]; // Get YYYY-MM-DD
+    });
+    
+    const uniqueDates = new Set(orderDates);
+    const totalDays = uniqueDates.size;
+    
+    if (totalDays === 0) return 0;
+    
+    return orders.length / totalDays;
+  }, [orders]);
+
+  const totalRevenue = useMemo(() => {
+    return orders.reduce((sum, order) => sum + order.total, 0);
+  }, [orders]);
+
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
     return (
@@ -546,7 +600,7 @@ export default function AdminPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-4 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage orders, products, calendar, and gallery</p>
+          <p className="text-sm sm:text-base text-gray-600">Manage orders, products, calendar, gallery, and analytics</p>
         </div>
 
               {/* Tabs */}
@@ -591,6 +645,16 @@ export default function AdminPage() {
                     }`}
                   >
                     Gallery
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("analytics")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "analytics"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Analytics
                   </button>
                 </div>
               </div>
@@ -1504,6 +1568,121 @@ export default function AdminPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === "analytics" && (
+          <>
+            {ordersLoading || productsLoading ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">Loading analytics...</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-sm font-medium text-gray-600">Total Orders</h3>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{orders.length}</p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-sm font-medium text-gray-600">Average Orders per Day</h3>
+                    <p className="text-3xl font-bold text-brown-600 mt-2">
+                      {averageOrdersPerDay.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-sm font-medium text-gray-600">Total Revenue</h3>
+                    <p className="text-3xl font-bold text-green-600 mt-2">
+                      ${totalRevenue.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Product Sales Chart */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Product Sales</h2>
+                  {productSalesData.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-gray-600">No sales data available yet.</p>
+                    </div>
+                  ) : (
+                    <div className="w-full" style={{ height: "500px" }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={productSalesData}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis
+                            dataKey="name"
+                            angle={-45}
+                            textAnchor="end"
+                            height={120}
+                            interval={0}
+                            tick={{ fontSize: 12 }}
+                          />
+                          <YAxis />
+                          <Tooltip
+                            formatter={(value: number, name: string) => {
+                              if (name === "quantity") {
+                                return [`${value} units`, "Quantity"];
+                              }
+                              return [`$${value.toFixed(2)}`, "Revenue"];
+                            }}
+                          />
+                          <Legend />
+                          <Bar dataKey="quantity" fill="#723f18" name="Quantity Sold" />
+                          <Bar dataKey="revenue" fill="#10b981" name="Revenue ($)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+
+                {/* Product Sales Table */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Product Sales Details</h2>
+                  {productSalesData.length === 0 ? (
+                    <p className="text-gray-600">No sales data available yet.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Product
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Quantity Sold
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Revenue
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {productSalesData.map((item, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {item.name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {item.quantity}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                ${item.revenue.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </>
