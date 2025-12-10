@@ -44,6 +44,19 @@ export async function PATCH(
       }
     }
 
+    // Allow updating cancelled status
+    if (typeof body.cancelled === "boolean") {
+      updates.cancelled = body.cancelled;
+      if (body.cancelled) {
+        updates.cancelledDate = new Date().toISOString();
+        // If cancelling, also mark as not completed
+        updates.completed = false;
+        updates.completedDate = undefined;
+      } else {
+        updates.cancelledDate = undefined;
+      }
+    }
+
     const updatedOrder = await updateOrder(params.id, updates);
 
     if (!updatedOrder) {

@@ -9,7 +9,7 @@ import Image from "next/image";
 import { Product } from "@/types/product";
 
 export default function CartPage() {
-  const { cart, removeFromCart, updateQuantity, getTotalPrice, clearCart } = useCart();
+  const { cart, removeFromCart, updateQuantity, toggleCut, getTotalPrice, clearCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
   const [allProducts, setAllProducts] = useState<Product[]>([]);
 
@@ -140,13 +140,29 @@ export default function CartPage() {
                     </div>
                     <div className="text-left sm:text-right">
                       <p className="text-base sm:text-lg font-semibold text-gray-900">
-                        ${(item.product.price * item.quantity).toFixed(2)}
+                        ${(item.product.price * item.quantity + (item.cut ? item.quantity : 0)).toFixed(2)}
                       </p>
                       <p className="text-xs sm:text-sm text-gray-500">
                         ${item.product.price.toFixed(2)} each
                       </p>
+                      {item.cut && (
+                        <p className="text-xs text-gray-500">+${(1 * item.quantity).toFixed(2)} slicing</p>
+                      )}
                     </div>
                   </div>
+
+                  {/* Slice bread option (only for bread category, non-mini loaf) */}
+                  {item.product.category?.toLowerCase().includes("bread") && !item.product.isMiniLoafBox && (
+                    <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={item.cut || false}
+                        onChange={() => toggleCut(item.product.id)}
+                        className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                      />
+                      <span>Slice bread (+$1)</span>
+                    </label>
+                  )}
                 </div>
                 <button
                   onClick={() => removeFromCart(item.product.id, item.selectedBreads)}
@@ -168,7 +184,11 @@ export default function CartPage() {
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Order Summary</h2>
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-700">
-                  <span>Subtotal ({cart.length} items)</span>
+                  <span>Items</span>
+                  <span>{cart.reduce((t, i) => t + i.quantity, 0)} / 4</span>
+                </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>Subtotal</span>
                   <span>${getTotalPrice().toFixed(2)}</span>
                 </div>
                

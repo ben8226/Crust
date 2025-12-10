@@ -294,13 +294,21 @@ export default function CheckoutPage() {
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Order Summary</h2>
               <div className="space-y-3 mb-6">
                 {cart.map((item) => (
-                  <div key={item.product.id} className="flex justify-between text-sm">
-                    <span className="text-gray-700">
-                      {item.product.name} x{item.quantity}
-                    </span>
-                    <span className="text-gray-900">
-                      ${(item.product.price * item.quantity).toFixed(2)}
-                    </span>
+                  <div key={item.product.id} className="text-sm text-gray-700">
+                    <div className="flex justify-between">
+                      <span>
+                        {item.product.name} x{item.quantity}
+                      </span>
+                      <span className="text-gray-900">
+                        ${(item.product.price * item.quantity + (item.cut ? item.quantity : 0)).toFixed(2)}
+                      </span>
+                    </div>
+                    {item.cut && (
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Slicing</span>
+                        <span>${(1 * item.quantity).toFixed(2)}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <div className="border-t pt-3 flex justify-between text-xl font-bold text-gray-900">

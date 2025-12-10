@@ -194,6 +194,12 @@ function OrderConfirmationContent() {
                         ${(item.product.price * item.quantity).toFixed(2)}
                       </span>
                     </div>
+                    {item.cut && (
+                      <div className="flex justify-between text-xs text-gray-600">
+                        <span>Slicing</span>
+                        <span>${(1 * item.quantity).toFixed(2)}</span>
+                      </div>
+                    )}
                     {item.product.isMiniLoafBox && item.selectedBreads && item.selectedBreads.length > 0 && (
                       <div className="ml-4 mt-1 text-xs text-gray-600">
                         <p className="font-medium mb-1">Selected Breads:</p>

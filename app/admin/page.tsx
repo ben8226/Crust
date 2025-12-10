@@ -21,7 +21,7 @@ export default function AdminPage() {
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "completed" | "cancelled">("all");
   const [updatingOrders, setUpdatingOrders] = useState<Set<string>>(new Set());
   
   // Products state
@@ -510,13 +510,15 @@ export default function AdminPage() {
   };
 
   const filteredOrders = orders.filter((order) => {
-    if (filter === "pending") return !order.completed;
-    if (filter === "completed") return order.completed;
+    if (filter === "pending") return !order.completed && !order.cancelled;
+    if (filter === "completed") return order.completed && !order.cancelled;
+    if (filter === "cancelled") return order.cancelled;
     return true;
   });
 
-  const pendingCount = orders.filter((o) => !o.completed).length;
-  const completedCount = orders.filter((o) => o.completed).length;
+  const pendingCount = orders.filter((o) => !o.completed && !o.cancelled).length;
+  const completedCount = orders.filter((o) => o.completed && !o.cancelled).length;
+  const cancelledCount = orders.filter((o) => o.cancelled).length;
 
   // Analytics calculations
   const productSalesData = useMemo(() => {
@@ -723,6 +725,16 @@ export default function AdminPage() {
                   >
                     Completed ({completedCount})
                   </button>
+                  <button
+                    onClick={() => setFilter("cancelled")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      filter === "cancelled"
+                        ? "bg-brown-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Cancelled ({cancelledCount})
+                  </button>
                 </div>
 
                 {/* Orders List */}
@@ -745,7 +757,11 @@ export default function AdminPage() {
                               <h3 className="text-xl font-bold text-gray-900">
                                 Order #{order.id}
                               </h3>
-                              {order.completed ? (
+                              {order.cancelled ? (
+                                <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
+                                  Cancelled
+                                </span>
+                              ) : order.completed ? (
                                 <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
                                   Completed
                                 </span>
@@ -765,21 +781,23 @@ export default function AdminPage() {
                               })}
                             </p>
                           </div>
-                          <button
-                            onClick={() => toggleOrderCompleted(order.id, order.completed || false)}
-                            disabled={updatingOrders.has(order.id)}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                              order.completed
-                                ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                : "bg-green-600 text-white hover:bg-green-700"
-                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                          >
-                            {updatingOrders.has(order.id)
-                              ? "Updating..."
-                              : order.completed
-                              ? "Mark as Pending"
-                              : "Mark as Completed"}
-                          </button>
+                          {!order.cancelled && (
+                            <button
+                              onClick={() => toggleOrderCompleted(order.id, order.completed || false)}
+                              disabled={updatingOrders.has(order.id)}
+                              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                                order.completed
+                                  ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                  : "bg-green-600 text-white hover:bg-green-700"
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                              {updatingOrders.has(order.id)
+                                ? "Updating..."
+                                : order.completed
+                                ? "Mark as Pending"
+                                : "Mark as Completed"}
+                            </button>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -846,7 +864,22 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        {order.completed && order.completedDate && (
+                        {order.cancelled && order.cancelledDate && (
+                          <div className="mt-4 pt-4 border-t">
+                            <p className="text-sm text-red-600">
+                              Cancelled on:{" "}
+                              {new Date(order.cancelledDate).toLocaleString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+                        )}
+
+                        {order.completed && order.completedDate && !order.cancelled && (
                           <div className="mt-4 pt-4 border-t">
                             <p className="text-sm text-gray-600">
                               Completed on:{" "}

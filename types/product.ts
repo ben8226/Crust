@@ -19,6 +19,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   selectedBreads?: string[]; // For mini loaf box: array of 4 bread product IDs
+  cut?: boolean; // Whether bread is sliced (adds $1)
 }
 
 export interface Order {
@@ -33,6 +34,8 @@ export interface Order {
   pickupTime?: string;
   completed?: boolean; // Whether the order has been completed/fulfilled
   completedDate?: string; // Date when order was marked as completed
+  cancelled?: boolean; // Whether the order has been cancelled
+  cancelledDate?: string; // Date when order was cancelled
   // Optional fields for backward compatibility with old orders
   email?: string;
   address?: string;
