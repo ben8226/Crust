@@ -24,9 +24,10 @@ async function fetchProducts() {
 
 // Group products by category and sort
 function organizeProducts(products: Product[]) {
-  // Define category priority (Bread first, then others alphabetically)
+  // Define category priority (Sourdough Bread first, then others alphabetically)
   const categoryPriority: Record<string, number> = {
-    "Bread": 0,
+    "Sourdough Bread": 0,
+    "Bread": 0, // Legacy support
     "Breads": 0, // Handle plural variations
   };
 
@@ -66,16 +67,16 @@ export default async function Home() {
   
   // Get available breads for mini loaf box (all bread products except the box itself)
   const availableBreads = products.filter(
-    (p) => p.category === "Bread" && !p.isMiniLoafBox && p.inStock
+    (p) => p.category?.toLowerCase().includes("bread") && !p.isMiniLoafBox && p.inStock
   );
 
   return (
-    <div className="min-h-screen bg-tan-50">
+    <div className="min-h-screen bg-tan-200">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-            Sourdough Bread
+            
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
             These products are homemade and not subject to state inspection.  Minnesota Cottage Food Producer License #20273109

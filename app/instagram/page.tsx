@@ -9,7 +9,7 @@ export default function InstagramPage() {
   const instagramProfileUrl = "https://www.instagram.com/YOUR_USERNAME/";
 
   return (
-    <div className="min-h-screen bg-tan-50">
+    <div className="min-h-screen bg-tan-200">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

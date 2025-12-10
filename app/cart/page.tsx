@@ -48,7 +48,7 @@ export default function CartPage() {
 
   if (cart.length === 0) {
     return (
-      <div className="min-h-screen bg-tan-50">
+      <div className="min-h-screen bg-tan-200">
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
@@ -103,7 +103,7 @@ export default function CartPage() {
                   
                   {/* Show selected breads for mini loaf box */}
                   {item.product.isMiniLoafBox && item.selectedBreads && item.selectedBreads.length > 0 && (
-                    <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-tan-50 rounded-lg border border-brown-200">
+                    <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-tan-100 rounded-lg border border-brown-200">
                       <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Selected Breads:</p>
                       <ul className="list-disc list-inside space-y-0.5 sm:space-y-1">
                         {item.selectedBreads.map((breadId, index) => (

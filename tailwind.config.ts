@@ -15,6 +15,8 @@ const config: Config = {
           50: "#faf8f3",
           100: "#f5f1e8",
           200: "#e8ddd4",
+          300: "#d4c4b0",
+          400: "#c9b8a3",
         },
         brown: {
           DEFAULT: "#723f18",

@@ -134,7 +134,7 @@ export default function CheckoutPage() {
 
   if (cart.length === 0) {
     return (
-      <div className="min-h-screen bg-tan-50">
+      <div className="min-h-screen bg-tan-200">
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
@@ -153,7 +153,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-tan-50">
+    <div className="min-h-screen bg-tan-200">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-8 gap-4">

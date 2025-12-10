@@ -62,7 +62,7 @@ function OrderConfirmationContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-tan-50">
+      <div className="min-h-screen bg-tan-200">
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
@@ -75,7 +75,7 @@ function OrderConfirmationContent() {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-tan-50">
+      <div className="min-h-screen bg-tan-200">
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
@@ -94,7 +94,7 @@ function OrderConfirmationContent() {
   }
 
   return (
-    <div className="min-h-screen bg-tan-50">
+    <div className="min-h-screen bg-tan-200">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16">
         <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-4 sm:p-6 md:p-8 text-center">
@@ -118,7 +118,7 @@ function OrderConfirmationContent() {
             <p className="text-gray-600">Thank you for your order</p>
           </div>
 
-          <div className="bg-tan-50 rounded-lg p-6 mb-6 text-left">
+          <div className="bg-tan-200 rounded-lg p-6 mb-6 text-left">
             <div className="mb-4">
               <p className="text-sm text-gray-600">Order Number</p>
               <p className="text-lg font-semibold text-gray-900">{order.id}</p>
@@ -213,7 +213,7 @@ function OrderConfirmationContent() {
 export default function OrderConfirmationPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-tan-50">
+      <div className="min-h-screen bg-tan-200">
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">

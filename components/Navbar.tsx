@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/contexts/CartContext";
 
 export default function Navbar() {
@@ -12,8 +13,18 @@ export default function Navbar() {
     <nav className="bg-white shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <Link href="/" className="text-lg sm:text-xl md:text-2xl font-bold text-brown-600 truncate">
-            Crust + Culture Microbakery
+          <Link href="/" className="flex items-center gap-2 sm:gap-3">
+            <Image
+              src="/images/LOGO.png"
+              alt="Crust + Culture Microbakery"
+              width={40}
+              height={40}
+              className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 object-contain"
+              priority
+            />
+            <span className="hidden sm:inline text-lg sm:text-xl md:text-2xl font-bold text-brown-600">
+              Crust + Culture Microbakery
+            </span>
           </Link>
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4 lg:space-x-6">

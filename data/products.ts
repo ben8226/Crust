@@ -8,7 +8,7 @@ export const products: Product[] = [
     price: 10,
     // Replace with your photo: "/images/blueberry.jpg" or use external URL
     image: "/images/Blueberry.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -17,7 +17,7 @@ export const products: Product[] = [
     description: "Deliciously herby!",
     price: 10,
     image: "/images/RosemarryParm.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -26,7 +26,7 @@ export const products: Product[] = [
     description: "A great mix of sweet and soft",
     price: 10,
     image: "/images/HoneyButter1.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -35,7 +35,7 @@ export const products: Product[] = [
     description: "For all the garlic lovers!",
     price: 8,
     image: "/images/GarlicParm.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -44,7 +44,7 @@ export const products: Product[] = [
     description: "The best combination of heat and cheese!",
     price: 10,
     image: "/images/JalapenoCheddar.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -53,7 +53,7 @@ export const products: Product[] = [
     description: "A great subtle hint of cheese",
     price: 10,
     image: "/images/MozzarellaCheese.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -62,7 +62,7 @@ export const products: Product[] = [
     description: "Great for soups",
     price: 8,
     image: "/images/ItalianHerbCheese.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -71,7 +71,7 @@ export const products: Product[] = [
     description: "Our best seller!",
     price: 8,
     image: "/images/BrownSugarCinnamon.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -80,7 +80,7 @@ export const products: Product[] = [
     description: "Classic Chocolaty goodness!",
     price: 8,
     image: "/images/ChocolateChip.png",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {
@@ -89,7 +89,7 @@ export const products: Product[] = [
     description: "Great for breakfast sandwiches!",
     price: 8,
     image: "/images/EverythingButTheBagel.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   { 
@@ -98,7 +98,7 @@ export const products: Product[] = [
     description: "The original classic. Great with ANYTHING!",
     price: 7,
     image: "/images/PlainBread.JPEG",
-    category: "Bread",
+    category: "Sourdough Bread",
     inStock: true,
   },
   {

@@ -10,8 +10,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Product Order Website",
-  description: "Order products online",
+  title: "Crust + Culture Microbakery",
+  description: "Order homemade sourdough bread and bakery items online",
+  icons: {
+    icon: "/images/LOGO.png",
+    apple: "/images/LOGO.png",
+  },
 };
 
 export default function RootLayout({
