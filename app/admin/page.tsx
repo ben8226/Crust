@@ -1,14 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import { Order, Product } from "@/types/product";
 import Link from "next/link";
+import AdminPasswordModal from "@/components/AdminPasswordModal";
 
 type Tab = "orders" | "products" | "calendar" | "gallery";
 
 export default function AdminPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("orders");
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -51,10 +56,47 @@ export default function AdminPage() {
   });
   const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
 
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = () => {
+      const authStatus = localStorage.getItem("adminAuthenticated") === "true";
+      const authTimestamp = localStorage.getItem("adminAuthTimestamp");
+      
+      if (authStatus && authTimestamp) {
+        const timestamp = parseInt(authTimestamp, 10);
+        const now = Date.now();
+        const hoursSinceAuth = (now - timestamp) / (1000 * 60 * 60);
+        
+        if (hoursSinceAuth < 24) {
+          // Still authenticated
+          setIsAuthenticated(true);
+          return;
+        } else {
+          // Authentication expired
+          localStorage.removeItem("adminAuthenticated");
+          localStorage.removeItem("adminAuthTimestamp");
+        }
+      }
+      
+      // Not authenticated or expired
+      setIsAuthenticated(false);
+      setShowPasswordModal(true);
+    };
+    
+    checkAuth();
+  }, []);
+
+  const handlePasswordSuccess = () => {
+    setIsAuthenticated(true);
+    setShowPasswordModal(false);
+  };
+
   // Fetch products on mount - needed for displaying bread names in orders
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (isAuthenticated) {
+      fetchProducts();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (activeTab === "orders") {
@@ -462,6 +504,39 @@ export default function AdminPage() {
 
   const pendingCount = orders.filter((o) => !o.completed).length;
   const completedCount = orders.filter((o) => o.completed).length;
+
+  // Show loading state while checking authentication
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-tan-200">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Show password modal if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-tan-200">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <p className="text-gray-600">Please authenticate to access the admin panel.</p>
+          </div>
+        </main>
+        <AdminPasswordModal
+          isOpen={showPasswordModal}
+          onClose={() => router.push("/")}
+          onSuccess={handlePasswordSuccess}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-tan-200">

@@ -3,11 +3,47 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
+import AdminPasswordModal from "./AdminPasswordModal";
 
 export default function Navbar() {
   const { getTotalItems } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const router = useRouter();
+
+  const handleAdminClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Check if already authenticated
+    const isAuthenticated = localStorage.getItem("adminAuthenticated") === "true";
+    const authTimestamp = localStorage.getItem("adminAuthTimestamp");
+    
+    // Check if authentication is still valid (24 hours)
+    if (isAuthenticated && authTimestamp) {
+      const timestamp = parseInt(authTimestamp, 10);
+      const now = Date.now();
+      const hoursSinceAuth = (now - timestamp) / (1000 * 60 * 60);
+      
+      if (hoursSinceAuth < 24) {
+        // Still authenticated, navigate directly
+        router.push("/admin");
+        return;
+      } else {
+        // Authentication expired, clear it
+        localStorage.removeItem("adminAuthenticated");
+        localStorage.removeItem("adminAuthTimestamp");
+      }
+    }
+    
+    // Show password modal
+    setShowPasswordModal(true);
+  };
+
+  const handlePasswordSuccess = () => {
+    setShowPasswordModal(false);
+    router.push("/admin");
+  };
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
@@ -22,7 +58,7 @@ export default function Navbar() {
               className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 object-contain"
               priority
             />
-            <span className="hidden sm:inline text-lg sm:text-xl md:text-2xl font-bold text-brown-600">
+            <span className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-brown-600 whitespace-nowrap">
               Crust + Culture Microbakery
             </span>
           </Link>
@@ -57,12 +93,12 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
-            <Link
-              href="/admin"
+            <button
+              onClick={handleAdminClick}
               className="text-gray-700 hover:text-brown-600 transition-colors text-sm lg:text-base"
             >
               Admin
-            </Link>
+            </button>
           </div>
           
           {/* Mobile Menu Button */}
@@ -120,16 +156,23 @@ export default function Navbar() {
             >
               Gallery
             </Link>
-            <Link
-              href="/admin"
-              onClick={() => setIsMenuOpen(false)}
-              className="block text-gray-700 hover:text-brown-600 transition-colors py-2"
+            <button
+              onClick={(e) => {
+                setIsMenuOpen(false);
+                handleAdminClick(e);
+              }}
+              className="block w-full text-left text-gray-700 hover:text-brown-600 transition-colors py-2"
             >
               Admin
-            </Link>
+            </button>
           </div>
         )}
       </div>
+      <AdminPasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onSuccess={handlePasswordSuccess}
+      />
     </nav>
   );
 }
