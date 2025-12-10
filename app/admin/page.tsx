@@ -40,6 +40,11 @@ export default function AdminPage() {
     ingredients: "",
     inStock: true,
     isMiniLoafBox: false,
+    allergens: {
+      wheat: false,
+      dairy: false,
+      egg: false,
+    },
   });
 
   // Calendar state
@@ -212,6 +217,7 @@ export default function AdminPage() {
           ingredients: editingProduct.ingredients,
           inStock: editingProduct.inStock,
           isMiniLoafBox: editingProduct.isMiniLoafBox,
+          allergens: editingProduct.allergens,
         }),
       });
 
@@ -257,6 +263,7 @@ export default function AdminPage() {
           ingredients: newProduct.ingredients || "",
           inStock: newProduct.inStock ?? true,
           isMiniLoafBox: newProduct.isMiniLoafBox ?? false,
+          allergens: newProduct.allergens || { wheat: false, dairy: false, egg: false },
         }),
       });
 
@@ -1028,6 +1035,64 @@ export default function AdminPage() {
                             </span>
                           </label>
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Allergens
+                          </label>
+                          <div className="flex flex-wrap gap-4">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={newProduct.allergens?.wheat ?? false}
+                                onChange={(e) =>
+                                  setNewProduct({
+                                    ...newProduct,
+                                    allergens: {
+                                      ...newProduct.allergens,
+                                      wheat: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="w-4 h-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm text-gray-700">Wheat</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={newProduct.allergens?.dairy ?? false}
+                                onChange={(e) =>
+                                  setNewProduct({
+                                    ...newProduct,
+                                    allergens: {
+                                      ...newProduct.allergens,
+                                      dairy: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm text-gray-700">Dairy</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={newProduct.allergens?.egg ?? false}
+                                onChange={(e) =>
+                                  setNewProduct({
+                                    ...newProduct,
+                                    allergens: {
+                                      ...newProduct.allergens,
+                                      egg: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="w-4 h-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm text-gray-700">Egg</span>
+                            </label>
+                          </div>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -1049,6 +1114,7 @@ export default function AdminPage() {
                               ingredients: "",
                               inStock: true,
                               isMiniLoafBox: false,
+                              allergens: { wheat: false, dairy: false, egg: false },
                             });
                           }}
                           className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
@@ -1201,6 +1267,64 @@ export default function AdminPage() {
                                 Mini Loaf Box (requires bread selection)
                               </span>
                             </label>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Allergens
+                            </label>
+                            <div className="flex flex-wrap gap-4">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={editingProduct.allergens?.wheat ?? false}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      allergens: {
+                                        ...editingProduct.allergens,
+                                        wheat: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-4 h-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm text-gray-700">Wheat</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={editingProduct.allergens?.dairy ?? false}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      allergens: {
+                                        ...editingProduct.allergens,
+                                        dairy: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm text-gray-700">Dairy</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={editingProduct.allergens?.egg ?? false}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      allergens: {
+                                        ...editingProduct.allergens,
+                                        egg: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-4 h-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm text-gray-700">Egg</span>
+                              </label>
+                            </div>
                           </div>
                         </div>
                         <div className="flex gap-2">

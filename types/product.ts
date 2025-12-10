@@ -8,6 +8,11 @@ export interface Product {
   inStock: boolean;
   ingredients?: string; // Optional ingredients list
   isMiniLoafBox?: boolean; // Special product that requires bread selection
+  allergens?: {
+    wheat?: boolean;
+    dairy?: boolean;
+    egg?: boolean;
+  };
 }
 
 export interface CartItem {
