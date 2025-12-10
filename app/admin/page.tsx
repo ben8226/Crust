@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
@@ -1471,13 +1472,13 @@ export default function AdminPage() {
                         className="bg-white rounded-lg shadow-md overflow-hidden"
                       >
                         <div className="relative h-48 w-full bg-gray-200">
-                          <img
+                          <Image
                             src={image.url}
                             alt={image.title || "Gallery image"}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "/placeholder-image.png";
-                            }}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                            unoptimized
                           />
                         </div>
                         <div className="p-4">
