@@ -18,7 +18,7 @@ export default function AboutPage() {
             I started this microbakery out of my home back in 2024 when I officially got a Minnesota Cottage Food license. 
             I have been baking sourdough bread since 2023. I specialize in small, made to order batches. 
             I am not a huge bakery that produces 50+ sourdough loaves in one day. 
-            That is what sets me apart, I put extra care and thought into every single loaf since I&apos;m able to focus on small qualities at once.
+            That is what sets me apart, I put extra care and thought into every single loaf since I&apos;m able to focus on small quantities at once.
             I have been adding and removing inclusion loaves from my menu to make sure the best and most perfected loaves are on the menu.
             If you have any inclusion loaf ideas make sure to send me a DM on Instagram to see if I can make it happen.
             <br />
