@@ -23,7 +23,7 @@ export default function AdminPage() {
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pending" | "completed" | "cancelled">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "completed" | "cancelled">("pending");
   const [updatingOrders, setUpdatingOrders] = useState<Set<string>>(new Set());
   const [deletingOrders, setDeletingOrders] = useState<Set<string>>(new Set());
 

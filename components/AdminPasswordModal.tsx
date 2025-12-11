@@ -44,6 +44,8 @@ export default function AdminPasswordModal({
         // Store authentication in localStorage
         localStorage.setItem("adminAuthenticated", "true");
         localStorage.setItem("adminAuthTimestamp", Date.now().toString());
+        // Notify listeners (e.g., navbar) in this tab
+        window.dispatchEvent(new Event("admin-auth-success"));
         setPassword("");
         onSuccess();
       } else {

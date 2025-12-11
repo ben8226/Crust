@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,58 @@ export default function Navbar() {
   const { getTotalItems } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [isAdminVisible, setIsAdminVisible] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState("");
   const router = useRouter();
+
+  const refreshAdminVisibility = () => {
+    const isAuthenticated = localStorage.getItem("adminAuthenticated") === "true";
+    const authTimestamp = localStorage.getItem("adminAuthTimestamp");
+
+    if (isAuthenticated && authTimestamp) {
+      const timestamp = parseInt(authTimestamp, 10);
+      const hoursSinceAuth = (Date.now() - timestamp) / (1000 * 60 * 60);
+      if (hoursSinceAuth < 24) {
+        setIsAdminVisible(true);
+        return;
+      }
+      localStorage.removeItem("adminAuthenticated");
+      localStorage.removeItem("adminAuthTimestamp");
+    }
+    setIsAdminVisible(false);
+  };
+
+  useEffect(() => {
+    refreshAdminVisibility();
+    setCustomerPhone(localStorage.getItem("customerPhone") || "");
+
+    const handleStorage = (event: StorageEvent) => {
+      if (
+        event.key === "adminAuthenticated" ||
+        event.key === "adminAuthTimestamp" ||
+        event.key === null
+      ) {
+        refreshAdminVisibility();
+      }
+      if (event.key === "customerPhone" || event.key === null) {
+        setCustomerPhone(localStorage.getItem("customerPhone") || "");
+      }
+    };
+
+    const handleAdminAuth = () => refreshAdminVisibility();
+    const handleCustomerPhoneUpdate = () =>
+      setCustomerPhone(localStorage.getItem("customerPhone") || "");
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("admin-auth-success", handleAdminAuth);
+    window.addEventListener("customer-phone-updated", handleCustomerPhoneUpdate);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("admin-auth-success", handleAdminAuth);
+      window.removeEventListener("customer-phone-updated", handleCustomerPhoneUpdate);
+    };
+  }, []);
 
   const handleAdminClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -99,12 +150,20 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
-            <button
-              onClick={handleAdminClick}
+            <Link
+              href="/my-account"
               className="text-gray-700 hover:text-brown-600 transition-colors text-sm lg:text-base"
             >
-              Admin
-            </button>
+              {customerPhone ? "My Account" : "Log In"}
+            </Link>
+            {isAdminVisible && (
+              <button
+                onClick={handleAdminClick}
+                className="text-gray-700 hover:text-brown-600 transition-colors text-sm lg:text-base"
+              >
+                Admin
+              </button>
+            )}
           </div>
           
           {/* Mobile Menu Button */}
@@ -169,15 +228,24 @@ export default function Navbar() {
             >
               Order Status
             </Link>
-            <button
-              onClick={(e) => {
-                setIsMenuOpen(false);
-                handleAdminClick(e);
-              }}
-              className="block w-full text-left text-gray-700 hover:text-brown-600 transition-colors py-2"
+            <Link
+              href="/my-account"
+              onClick={() => setIsMenuOpen(false)}
+              className="block text-gray-700 hover:text-brown-600 transition-colors py-2"
             >
-              Admin
-            </button>
+              {customerPhone ? "My Account" : "Log In"}
+            </Link>
+            {isAdminVisible && (
+              <button
+                onClick={(e) => {
+                  setIsMenuOpen(false);
+                  handleAdminClick(e);
+                }}
+                className="block w-full text-left text-gray-700 hover:text-brown-600 transition-colors py-2"
+              >
+                Admin
+              </button>
+            )}
           </div>
         )}
       </div>

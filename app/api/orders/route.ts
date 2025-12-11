@@ -95,10 +95,26 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const phoneParam = searchParams.get("phone");
+
+    const normalizePhone = (value: string) => value.replace(/\D/g, "");
+
     const orders = await getOrders();
-    return NextResponse.json(orders, { status: 200 });
+    let filtered = orders;
+
+    if (phoneParam) {
+      const target = normalizePhone(phoneParam);
+      filtered = orders.filter((order) => normalizePhone(order.phone) === target);
+    }
+
+    const sorted = [...filtered].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    return NextResponse.json(sorted, { status: 200 });
   } catch (error) {
     console.error("Error fetching orders:", error);
     return NextResponse.json(
