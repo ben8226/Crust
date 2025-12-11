@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Product } from "@/types/product";
 import { useCart } from "@/contexts/CartContext";
 import Image from "next/image";
@@ -14,6 +14,36 @@ interface ProductCardProps {
 export default function ProductCard({ product, availableBreads = [] }: ProductCardProps) {
   const { addToCart } = useCart();
   const [showModal, setShowModal] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
+  const addedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (addedTimeoutRef.current) {
+        clearTimeout(addedTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const triggerAddedFeedback = () => {
+    setIsAdded(true);
+    if (addedTimeoutRef.current) {
+      clearTimeout(addedTimeoutRef.current);
+    }
+    addedTimeoutRef.current = setTimeout(() => setIsAdded(false), 900);
+  };
+
+  const handleAddToCartClick = () => {
+    if (product.isMiniLoafBox) {
+      setShowModal(true);
+      return;
+    }
+
+    const success = addToCart(product);
+    if (success) {
+      triggerAddedFeedback();
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
@@ -39,22 +69,25 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
             ${product.price.toFixed(2)}
           </span>
           <button
-            onClick={() => {
-              if (product.isMiniLoafBox) {
-                setShowModal(true);
-              } else {
-                addToCart(product);
-              }
-            }}
+            onClick={handleAddToCartClick}
             disabled={!product.inStock}
-            className={`w-full sm:w-auto px-4 py-2 rounded font-medium transition-colors text-sm sm:text-base ${
+            className={`w-full sm:w-auto px-4 py-2 rounded font-medium transition-colors transition-transform duration-150 text-sm sm:text-base ${
               product.inStock
                 ? "bg-brown-600 text-white hover:bg-brown-700"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            } ${
+              isAdded
+                ? "bg-green-600 hover:bg-green-600 ring-2 ring-green-300 scale-[1.02] animate-pulse"
+                : ""
             }`}
           >
-            Add to Cart
+            {isAdded ? "Added!" : "Add to Cart"}
           </button>
+          {isAdded && (
+            <span className="sr-only" aria-live="polite">
+              {product.name} added to cart
+            </span>
+          )}
         </div>
         {product.ingredients && (
           <p className="text-xs text-gray-600 mt-3 pt-3 border-t border-gray-200">
@@ -83,7 +116,10 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
           isOpen={showModal}
           onClose={() => setShowModal(false)}
           onConfirm={(selectedBreads) => {
-            addToCart(product, selectedBreads);
+            const success = addToCart(product, selectedBreads);
+            if (success) {
+              triggerAddedFeedback();
+            }
           }}
           availableBreads={availableBreads}
         />
