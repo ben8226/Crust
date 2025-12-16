@@ -16,6 +16,11 @@ export default function MyAccountPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("loyalty");
+  const [reviewEdits, setReviewEdits] = useState<Record<string, Record<number, string>>>({});
+  const [orderReviewEdits, setOrderReviewEdits] = useState<Record<string, string>>({});
+  const [openItemReviews, setOpenItemReviews] = useState<Record<string, Record<number, boolean>>>({});
+  const [openOrderReviews, setOpenOrderReviews] = useState<Record<string, boolean>>({});
+  const [savingReviews, setSavingReviews] = useState<Set<string>>(new Set());
 
   const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
@@ -39,15 +44,44 @@ export default function MyAccountPage() {
       if (res.ok) {
         const data: Order[] = await res.json();
         setOrders(data);
+
+        const itemsReviews: Record<string, Record<number, string>> = {};
+        const overallReviews: Record<string, string> = {};
+        data.forEach((order) => {
+          const map: Record<number, string> = {};
+          order.items.forEach((item, idx) => {
+            map[idx] = item.review || "";
+          });
+          itemsReviews[order.id] = map;
+          overallReviews[order.id] = order.review || "";
+        });
+        const openOverall: Record<string, boolean> = {};
+        data.forEach((order) => {
+          openOverall[order.id] = true; // show overall review box by default
+        });
+
+        setReviewEdits(itemsReviews);
+        setOrderReviewEdits(overallReviews);
+        setOpenItemReviews({});
+        setOpenOrderReviews(openOverall);
+
         localStorage.setItem("customerPhone", trimmed);
         setStoredPhone(trimmed);
         window.dispatchEvent(new Event("customer-phone-updated"));
       } else {
         setOrders([]);
+        setReviewEdits({});
+        setOrderReviewEdits({});
+        setOpenItemReviews({});
+        setOpenOrderReviews({});
       }
     } catch (err) {
       console.error("Error fetching orders by phone:", err);
       setOrders([]);
+      setReviewEdits({});
+      setOrderReviewEdits({});
+      setOpenItemReviews({});
+      setOpenOrderReviews({});
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +101,90 @@ export default function MyAccountPage() {
       return order.pickupTime ? `${dateDisplay} @ ${order.pickupTime}` : dateDisplay;
     }
     return "Pickup date not set";
+  };
+
+  const handleReviewChange = (orderId: string, itemIndex: number, value: string) => {
+    setReviewEdits((prev) => ({
+      ...prev,
+      [orderId]: {
+        ...(prev[orderId] || {}),
+        [itemIndex]: value,
+      },
+    }));
+  };
+
+  const handleOrderReviewChange = (orderId: string, value: string) => {
+    setOrderReviewEdits((prev) => ({ ...prev, [orderId]: value }));
+  };
+
+  const toggleItemReview = (orderId: string, itemIndex: number) => {
+    setOpenItemReviews((prev) => ({
+      ...prev,
+      [orderId]: {
+        ...(prev[orderId] || {}),
+        [itemIndex]: !prev[orderId]?.[itemIndex],
+      },
+    }));
+  };
+
+  const toggleOrderReview = (orderId: string) => {
+    setOpenOrderReviews((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
+
+  const handleSaveReview = async (orderId: string, itemIndex: number) => {
+    const review = reviewEdits[orderId]?.[itemIndex] ?? "";
+    const savingKey = `${orderId}-${itemIndex}`;
+    setSavingReviews((prev) => new Set(prev).add(savingKey));
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemReviews: { [itemIndex]: review } }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setOrders((prev) =>
+          prev.map((order) => (order.id === orderId ? { ...order, items: updated.items || order.items } : order))
+        );
+      }
+    } catch (err) {
+      console.error("Error saving review:", err);
+    } finally {
+      setSavingReviews((prev) => {
+        const next = new Set(prev);
+        next.delete(savingKey);
+        return next;
+      });
+    }
+  };
+
+  const handleSaveOrderReview = async (orderId: string) => {
+    const review = orderReviewEdits[orderId] ?? "";
+    const savingKey = `overall-${orderId}`;
+    setSavingReviews((prev) => new Set(prev).add(savingKey));
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ review }),
+      });
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((order) => (order.id === orderId ? { ...order, review } : order))
+        );
+      }
+    } catch (err) {
+      console.error("Error saving review:", err);
+    } finally {
+      setSavingReviews((prev) => {
+        const next = new Set(prev);
+        next.delete(savingKey);
+        return next;
+      });
+    }
   };
 
   return (
@@ -132,14 +250,81 @@ export default function MyAccountPage() {
               orders.map((order) => (
                 <div key={order.id} className="bg-white rounded-lg shadow-md p-4 sm:p-6">
                   <div className="text-sm text-gray-500 mb-2">Pickup: {displayPickup(order)}</div>
-                  <ul className="space-y-1 text-gray-800">
-                    {order.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between">
-                        <span>{item.product.name}</span>
-                        <span className="text-sm text-gray-600">x{item.quantity}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-4 text-gray-800">
+                    {order.items.map((item, idx) => {
+                      const savingKey = `${order.id}-${idx}`;
+                      const isOpen = openItemReviews[order.id]?.[idx];
+                      return (
+                        <div key={idx} className="border-t border-gray-100 pt-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{item.product.name}</p>
+                              <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleItemReview(order.id, idx)}
+                              className="text-sm text-brown-700 underline underline-offset-2 hover:text-brown-800 transition-colors"
+                            >
+                              {isOpen ? "Hide Review" : "Add/Edit Review"}
+                            </button>
+                          </div>
+                          {isOpen && (
+                            <div className="mt-2">
+                              <textarea
+                                value={reviewEdits[order.id]?.[idx] ?? ""}
+                                onChange={(e) => handleReviewChange(order.id, idx, e.target.value)}
+                                rows={3}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent text-sm"
+                                placeholder="Share feedback about this item"
+                              />
+                              <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={() => handleSaveReview(order.id, idx)}
+                                  disabled={savingReviews.has(savingKey)}
+                                  className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                >
+                                  {savingReviews.has(savingKey) ? "Saving..." : "Save Review"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="border-t border-gray-200 pt-3">
+                      <div className="flex justify-between items-center">
+                        <p className="font-medium text-gray-800">Overall Review</p>
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderReview(order.id)}
+                          className="text-sm text-brown-700 underline underline-offset-2 hover:text-brown-800 transition-colors"
+                        >
+                          {openOrderReviews[order.id] ? "Hide" : "Add/Edit"}
+                        </button>
+                      </div>
+                      {openOrderReviews[order.id] && (
+                        <div className="mt-2">
+                          <textarea
+                            value={orderReviewEdits[order.id] ?? ""}
+                            onChange={(e) => handleOrderReviewChange(order.id, e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent text-sm"
+                            placeholder="Share overall feedback about this order"
+                          />
+                          <div className="flex justify-end mt-2">
+                            <button
+                              onClick={() => handleSaveOrderReview(order.id)}
+                              disabled={savingReviews.has(`overall-${order.id}`)}
+                              className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                              {savingReviews.has(`overall-${order.id}`) ? "Saving..." : "Save Overall Review"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))
             )}

@@ -94,8 +94,10 @@ export async function getOrderById(id: string): Promise<Order | null> {
   }
 }
 
+type OrderUpdatePayload = Partial<Order> & { itemReviews?: Record<number, string> };
+
 // Update order (e.g., mark as completed)
-export async function updateOrder(orderId: string, updates: Partial<Order>): Promise<Order | null> {
+export async function updateOrder(orderId: string, updates: OrderUpdatePayload): Promise<Order | null> {
   try {
     const redis = await getRedis();
     if (!redis) {
@@ -111,10 +113,23 @@ export async function updateOrder(orderId: string, updates: Partial<Order>): Pro
       return null;
     }
     
+    // Apply item-level review updates if provided
+    let updatedItems = orders[orderIndex].items;
+    if (updates.itemReviews && orders[orderIndex].items) {
+      updatedItems = orders[orderIndex].items.map((item, idx) => {
+        if (Object.prototype.hasOwnProperty.call(updates.itemReviews!, idx)) {
+          return { ...item, review: updates.itemReviews![idx] };
+        }
+        return item;
+      });
+    }
+
     // Update the order
+    const { itemReviews, ...restUpdates } = updates;
     orders[orderIndex] = {
       ...orders[orderIndex],
-      ...updates,
+      ...restUpdates,
+      items: updatedItems,
     };
     
     // Save updated orders

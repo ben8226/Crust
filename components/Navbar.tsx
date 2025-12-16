@@ -134,6 +134,12 @@ export default function Navbar() {
               Gallery
             </Link>
             <Link
+              href="/reviews"
+              className="text-gray-700 hover:text-brown-600 transition-colors text-sm lg:text-base"
+            >
+              Reviews
+            </Link>
+            <Link
               href="/order-status"
               className="text-gray-700 hover:text-brown-600 transition-colors text-sm lg:text-base"
             >
@@ -220,6 +226,13 @@ export default function Navbar() {
               className="block text-gray-700 hover:text-brown-600 transition-colors py-2"
             >
               Gallery
+            </Link>
+            <Link
+              href="/reviews"
+              onClick={() => setIsMenuOpen(false)}
+              className="block text-gray-700 hover:text-brown-600 transition-colors py-2"
+            >
+              Reviews
             </Link>
             <Link
               href="/order-status"

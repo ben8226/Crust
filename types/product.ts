@@ -20,6 +20,7 @@ export interface CartItem {
   quantity: number;
   selectedBreads?: string[]; // For mini loaf box: array of 4 bread product IDs
   cut?: boolean; // Whether bread is sliced (adds $1)
+  review?: string; // Optional review for this item when part of an order
 }
 
 export interface Order {
@@ -36,6 +37,7 @@ export interface Order {
   completedDate?: string; // Date when order was marked as completed
   cancelled?: boolean; // Whether the order has been cancelled
   cancelledDate?: string; // Date when order was cancelled
+  review?: string; // Optional customer review
   // Optional fields for backward compatibility with old orders
   email?: string;
   address?: string;

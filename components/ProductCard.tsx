@@ -5,6 +5,7 @@ import { Product } from "@/types/product";
 import { useCart } from "@/contexts/CartContext";
 import Image from "next/image";
 import MiniLoafBoxModal from "./MiniLoafBoxModal";
+import ProductReviewsModal from "./ProductReviewsModal";
 
 interface ProductCardProps {
   product: Product;
@@ -16,6 +17,7 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
   const [showModal, setShowModal] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
   const addedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showReviews, setShowReviews] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -65,9 +67,18 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
         <h3 className="text-lg font-semibold text-gray-800 mb-2">{product.name}</h3>
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <span className="text-xl sm:text-2xl font-bold text-brown-600">
-            ${product.price.toFixed(2)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xl sm:text-2xl font-bold text-brown-600">
+              ${product.price.toFixed(2)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowReviews(true)}
+              className="text-sm text-brown-700 underline underline-offset-2 hover:text-brown-800 transition-colors"
+            >
+              Reviews
+            </button>
+          </div>
           <button
             onClick={handleAddToCartClick}
             disabled={!product.inStock}
@@ -124,6 +135,12 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
           availableBreads={availableBreads}
         />
       )}
+      <ProductReviewsModal
+        productId={product.id}
+        productName={product.name}
+        isOpen={showReviews}
+        onClose={() => setShowReviews(false)}
+      />
     </div>
   );
 }

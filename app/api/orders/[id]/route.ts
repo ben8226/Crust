@@ -32,7 +32,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const updates: Partial<Order> = {};
+    const updates: Partial<Order> & { itemReviews?: Record<number, string> } = {};
 
     // Allow updating completed status
     if (typeof body.completed === "boolean") {
@@ -41,6 +41,25 @@ export async function PATCH(
         updates.completedDate = new Date().toISOString();
       } else {
         updates.completedDate = undefined;
+      }
+    }
+
+    // Allow updating overall review
+    if (typeof body.review === "string") {
+      updates.review = body.review;
+    }
+
+    // Allow updating item-level reviews
+    if (body.itemReviews && typeof body.itemReviews === "object") {
+      const clean: Record<number, string> = {};
+      Object.entries(body.itemReviews).forEach(([k, v]) => {
+        const idx = Number(k);
+        if (!Number.isNaN(idx) && typeof v === "string") {
+          clean[idx] = v;
+        }
+      });
+      if (Object.keys(clean).length > 0) {
+        updates.itemReviews = clean;
       }
     }
 
