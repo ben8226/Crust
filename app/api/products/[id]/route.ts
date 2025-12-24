@@ -43,7 +43,7 @@ export async function PATCH(
     if (body.category !== undefined) updates.category = body.category;
     if (body.ingredients !== undefined) updates.ingredients = body.ingredients;
     if (body.inStock !== undefined) updates.inStock = body.inStock;
-    if (body.isMiniLoafBox !== undefined) updates.isMiniLoafBox = body.isMiniLoafBox;
+    if (body.loafType !== undefined) updates.loafType = body.loafType;
     if (body.allergens !== undefined) updates.allergens = body.allergens;
 
     const updatedProduct = await updateProduct(params.id, updates);

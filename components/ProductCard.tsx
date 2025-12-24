@@ -36,7 +36,7 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
   };
 
   const handleAddToCartClick = () => {
-    if (product.isMiniLoafBox) {
+    if (product.loafType === 'mini' || product.loafType === 'half') {
       setShowModal(true);
       return;
     }
@@ -122,7 +122,7 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
         )}
       </div>
 
-      {product.isMiniLoafBox && (
+      {(product.loafType === 'mini' || product.loafType === 'half') && (
         <MiniLoafBoxModal
           isOpen={showModal}
           onClose={() => setShowModal(false)}
@@ -133,6 +133,8 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
             }
           }}
           availableBreads={availableBreads}
+          selectionCount={product.loafType === 'half' ? 2 : 4}
+          boxType={product.loafType}
         />
       )}
       <ProductReviewsModal

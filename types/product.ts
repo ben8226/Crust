@@ -7,7 +7,7 @@ export interface Product {
   category: string;
   inStock: boolean;
   ingredients?: string; // Optional ingredients list
-  isMiniLoafBox?: boolean; // Special product that requires bread selection
+  loafType?: "mini" | "half"; // Special product types that require bread selection
   allergens?: {
     wheat?: boolean;
     dairy?: boolean;

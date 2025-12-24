@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -13,10 +13,12 @@ import { formatDateInput } from "@/lib/date";
 export default function CheckoutPage() {
   const { cart, getTotalPrice, clearCart } = useCart();
   const router = useRouter();
+  const phoneInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     customerName: "",
-    phone: "",
+    phone: "+1 ",
   });
+  const [phoneDigits, setPhoneDigits] = useState(""); // 10-digit US phone (no country code)
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
   const [pickupDate, setPickupDate] = useState<Date | null>(null);
   const [pickupTime, setPickupTime] = useState("");
@@ -77,12 +79,101 @@ export default function CheckoutPage() {
     return () => clearInterval(timer);
   }, []);
 
+  // Check if a date is a weekend (Saturday or Sunday)
+  const isWeekend = (date: Date | null): boolean => {
+    if (!date) return false;
+    const day = date.getDay();
+    return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+  };
+
+  // Generate pickup time options based on whether it's a weekend
+  const getPickupTimeOptions = () => {
+    const allTimes = [
+      "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+      "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM",
+      "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM",
+      "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM"
+    ];
+
+    // For weekends, start from 12:00 PM
+    if (isWeekend(pickupDate)) {
+      const noonIndex = allTimes.indexOf("12:00 PM");
+      return allTimes.slice(noonIndex);
+    }
+
+    // For weekdays, show all times from 10:00 AM
+    return allTimes;
+  };
+
+  // Clear pickup time if it becomes invalid when date changes
+  useEffect(() => {
+    if (pickupTime && pickupDate) {
+      const availableTimes = getPickupTimeOptions();
+      if (!availableTimes.includes(pickupTime)) {
+        setPickupTime("");
+      }
+    }
+  }, [pickupDate, pickupTime]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
   };
+
+  const formatPhone = (digits: string): string => {
+    const d = (digits || "").slice(0, 10);
+    if (d.length === 0) return "+1 ";
+    if (d.length <= 3) return `+1 (${d}`;
+    if (d.length <= 6) return `+1 (${d.slice(0, 3)}) ${d.slice(3)}`;
+    return `+1 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  };
+
+  const keepPhoneCursorAtEnd = () => {
+    requestAnimationFrame(() => {
+      const el = phoneInputRef.current;
+      if (!el) return;
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    let digitsOnly = raw.replace(/\D/g, "");
+
+    // Our input always displays a +1 prefix. That "1" is NOT part of the 10-digit number.
+    // So if the user is editing a value that starts with "+1", always drop the leading 1.
+    if (raw.trim().startsWith("+1") && digitsOnly.startsWith("1")) {
+      digitsOnly = digitsOnly.slice(1);
+    } else if (digitsOnly.length > 10 && digitsOnly.startsWith("1")) {
+      // If user pastes "1" + 10 digits without the "+1" text, also drop the leading 1.
+      digitsOnly = digitsOnly.slice(1);
+    }
+
+    const nextDigits = digitsOnly.slice(0, 10);
+    setPhoneDigits(nextDigits);
+    setFormData((prev) => ({ ...prev, phone: formatPhone(nextDigits) }));
+    keepPhoneCursorAtEnd();
+  };
+
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+
+    // Prevent deleting/modifying the "+1 " prefix.
+    const prefixLength = 3; // "+1 "
+    const isBackspace = e.key === "Backspace";
+    const isDelete = e.key === "Delete";
+
+    if ((isBackspace || isDelete) && start <= prefixLength && end <= prefixLength) {
+      e.preventDefault();
+      keepPhoneCursorAtEnd();
+    }
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +186,12 @@ export default function CheckoutPage() {
     
     if (!pickupDate) {
       alert("Please select a pickup date.");
+      return;
+    }
+
+    if (phoneDigits.length !== 10) {
+      alert("Please enter a valid 10-digit phone number.");
+      keepPhoneCursorAtEnd();
       return;
     }
     
@@ -212,9 +309,16 @@ export default function CheckoutPage() {
                   name="phone"
                   required
                   value={formData.phone}
-                  onChange={handleChange}
+                  ref={phoneInputRef}
+                  inputMode="tel"
+                  onChange={handlePhoneChange}
+                  onKeyDown={handlePhoneKeyDown}
+                  onFocus={keepPhoneCursorAtEnd}
+                  onClick={keepPhoneCursorAtEnd}
+                  placeholder="+1 (123) 234-1111"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+                <p className="text-xs text-gray-500 mt-1">Format: +1 (123) 234-1111</p>
               </div>
 
               <div className="border-t pt-4 sm:pt-6">
@@ -256,23 +360,9 @@ export default function CheckoutPage() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
                     >
                       <option value="">Select a time</option>
-                      <option value="10:00 AM">10:00 AM</option>
-                      <option value="10:30 AM">10:30 AM</option>
-                      <option value="11:00 AM">11:00 AM</option>
-                      <option value="11:30 AM">11:30 AM</option>
-                      <option value="12:00 PM">12:00 PM</option>
-                      <option value="12:30 PM">12:30 PM</option>
-                      <option value="1:00 PM">1:00 PM</option>
-                      <option value="1:30 PM">1:30 PM</option>
-                      <option value="2:00 PM">2:00 PM</option>
-                      <option value="2:30 PM">2:30 PM</option>
-                      <option value="3:00 PM">3:00 PM</option>
-                      <option value="3:30 PM">3:30 PM</option>
-                      <option value="4:00 PM">4:00 PM</option>
-                      <option value="4:30 PM">4:30 PM</option>
-                      <option value="5:00 PM">5:00 PM</option>
-                      <option value="5:30 PM">5:30 PM</option>
-                      <option value="6:00 PM">6:00 PM</option>
+                      {getPickupTimeOptions().map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

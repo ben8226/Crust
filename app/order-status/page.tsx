@@ -293,7 +293,7 @@ export default function OrderStatusPage() {
                                 ${(item.product.price * item.quantity).toFixed(2)}
                               </span>
                             </div>
-                            {item.product.isMiniLoafBox &&
+                            {(item.product.loafType === 'mini' || item.product.loafType === 'half') &&
                               item.selectedBreads &&
                               item.selectedBreads.length > 0 && (
                                 <div className="ml-4 mt-1 text-xs text-gray-600">

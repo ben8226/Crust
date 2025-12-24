@@ -201,7 +201,7 @@ function OrderConfirmationContent() {
                         <span>${(1 * item.quantity).toFixed(2)}</span>
                       </div>
                     )}
-                    {item.product.isMiniLoafBox && item.selectedBreads && item.selectedBreads.length > 0 && (
+                    {(item.product.loafType === 'mini' || item.product.loafType === 'half') && item.selectedBreads && item.selectedBreads.length > 0 && (
                       <div className="ml-4 mt-1 text-xs text-gray-600">
                         <p className="font-medium mb-1">Selected Breads:</p>
                         <ul className="list-disc list-inside">

@@ -44,8 +44,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     setCart((prevCart) => {
-      // For mini loaf box, check if same selection exists
-      if (product.isMiniLoafBox && selectedBreads) {
+      // For mini loaf box or half loaf box, check if same selection exists
+      if ((product.loafType === 'mini' || product.loafType === 'half') && selectedBreads) {
         const existingItem = prevCart.find(
           (item) =>
             item.product.id === product.id &&
@@ -144,8 +144,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const toggleCut = (productId: string, selectedBreads?: string[]) => {
     setCart((prevCart) =>
       prevCart.map((item) => {
-        const isSameMiniSelection =
-          item.product.isMiniLoafBox &&
+        const isSameLoafSelection =
+          (item.product.loafType === 'mini' || item.product.loafType === 'half') &&
           selectedBreads &&
           item.selectedBreads &&
           JSON.stringify(item.selectedBreads?.sort()) ===
@@ -153,7 +153,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
         const isSameProduct =
           item.product.id === productId &&
-          (!item.product.isMiniLoafBox || isSameMiniSelection);
+          ((item.product.loafType !== 'mini' && item.product.loafType !== 'half') || isSameLoafSelection);
 
         if (!isSameProduct) return item;
         return { ...item, cut: !item.cut };

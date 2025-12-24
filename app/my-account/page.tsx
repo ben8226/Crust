@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order } from "@/types/product";
@@ -12,6 +12,8 @@ type Tab = "orders" | "loyalty";
 export default function MyAccountPage() {
   const [phone, setPhone] = useState("");
   const [storedPhone, setStoredPhone] = useState("");
+  const [phoneDigits, setPhoneDigits] = useState(""); // 10-digit US phone (no country code)
+  const phoneInputRef = useRef<HTMLInputElement>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
@@ -24,10 +26,60 @@ export default function MyAccountPage() {
 
   const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
+  const formatPhone = (digits: string): string => {
+    const d = (digits || "").slice(0, 10);
+    if (d.length === 0) return "+1 ";
+    if (d.length <= 3) return `+1 (${d}`;
+    if (d.length <= 6) return `+1 (${d.slice(0, 3)}) ${d.slice(3)}`;
+    return `+1 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  };
+
+  const keepPhoneCursorAtEnd = () => {
+    requestAnimationFrame(() => {
+      const el = phoneInputRef.current;
+      if (!el) return;
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
+  };
+
+  const handlePhoneChange = (value: string) => {
+    let digitsOnly = value.replace(/\D/g, "");
+
+    // If value starts with +1, that "1" is not part of the 10-digit number.
+    if (value.trim().startsWith("+1") && digitsOnly.startsWith("1")) {
+      digitsOnly = digitsOnly.slice(1);
+    } else if (digitsOnly.length > 10 && digitsOnly.startsWith("1")) {
+      // Also handle pasted values like "1" + 10 digits
+      digitsOnly = digitsOnly.slice(1);
+    }
+
+    const nextDigits = digitsOnly.slice(0, 10);
+    setPhoneDigits(nextDigits);
+    setPhone(formatPhone(nextDigits));
+    keepPhoneCursorAtEnd();
+  };
+
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+
+    // Prevent deleting/modifying the "+1 " prefix.
+    const prefixLength = 3; // "+1 "
+    const isBackspace = e.key === "Backspace";
+    const isDelete = e.key === "Delete";
+
+    if ((isBackspace || isDelete) && start <= prefixLength && end <= prefixLength) {
+      e.preventDefault();
+      keepPhoneCursorAtEnd();
+    }
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem("customerPhone") || "";
     if (saved) {
-      setPhone(saved);
+      handlePhoneChange(saved);
       setStoredPhone(saved);
       fetchOrders(saved);
     }
@@ -89,6 +141,7 @@ export default function MyAccountPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (phoneDigits.length !== 10) return;
     fetchOrders(phone);
   };
 
@@ -202,13 +255,18 @@ export default function MyAccountPage() {
           <input
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Enter your phone number"
+            ref={phoneInputRef}
+            inputMode="tel"
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            onKeyDown={handlePhoneKeyDown}
+            onFocus={keepPhoneCursorAtEnd}
+            onClick={keepPhoneCursorAtEnd}
+            placeholder="+1 (123) 234-1111"
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent text-lg"
           />
           <button
             type="submit"
-            disabled={isLoading || !normalizePhone(phone)}
+            disabled={isLoading || phoneDigits.length !== 10}
             className="w-full px-6 py-3 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Loading..." : storedPhone ? "Refresh Orders" : "Log In"}

@@ -8,6 +8,8 @@ interface MiniLoafBoxModalProps {
   onClose: () => void;
   onConfirm: (selectedBreads: string[]) => void;
   availableBreads: Product[];
+  selectionCount?: number; // Number of breads to select (default: 4 for mini loaf)
+  boxType?: 'mini' | 'half'; // Type of loaf box
 }
 
 export default function MiniLoafBoxModal({
@@ -15,15 +17,17 @@ export default function MiniLoafBoxModal({
   onClose,
   onConfirm,
   availableBreads,
+  selectionCount = 4,
+  boxType = 'mini',
 }: MiniLoafBoxModalProps) {
-  const [selectedBreads, setSelectedBreads] = useState<string[]>(["", "", "", ""]);
+  const [selectedBreads, setSelectedBreads] = useState<string[]>(Array(selectionCount).fill(""));
 
   useEffect(() => {
     if (isOpen) {
       // Reset selections when modal opens
-      setSelectedBreads(["", "", "", ""]);
+      setSelectedBreads(Array(selectionCount).fill(""));
     }
-  }, [isOpen]);
+  }, [isOpen, selectionCount]);
 
   const handleBreadChange = (index: number, breadId: string) => {
     const newSelections = [...selectedBreads];
@@ -32,9 +36,9 @@ export default function MiniLoafBoxModal({
   };
 
   const handleConfirm = () => {
-    // Validate that all 4 breads are selected
+    // Validate that all breads are selected
     if (selectedBreads.some((id) => !id)) {
-      alert("Please select 4 breads for the box");
+      alert(`Please select ${selectionCount} ${selectionCount === 1 ? 'bread' : 'breads'} for the box`);
       return;
     }
 
@@ -48,7 +52,9 @@ export default function MiniLoafBoxModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Select 4 Breads for Your Box</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+            Select {selectionCount} Bread{selectionCount === 1 ? '' : 's'} for Your {boxType === 'half' ? 'Half Loaf' : 'Mini Loaf'} Box
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -71,7 +77,7 @@ export default function MiniLoafBoxModal({
         </div>
 
         <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-          {[0, 1, 2, 3].map((index) => (
+          {Array.from({ length: selectionCount }, (_, index) => (
             <div key={index}>
               <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                 Bread {index + 1} *

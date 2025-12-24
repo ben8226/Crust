@@ -104,7 +104,7 @@ export default function CartPage() {
                   <p className="text-gray-600 text-sm mb-3 sm:mb-4">{item.product.description}</p>
                   
                   {/* Show selected breads for mini loaf box */}
-                  {item.product.isMiniLoafBox && item.selectedBreads && item.selectedBreads.length > 0 && (
+                  {(item.product.loafType === 'mini' || item.product.loafType === 'half') && item.selectedBreads && item.selectedBreads.length > 0 && (
                     <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-tan-100 rounded-lg border border-brown-200">
                       <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Selected Breads:</p>
                       <ul className="list-disc list-inside space-y-0.5 sm:space-y-1">
@@ -151,13 +151,13 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  {/* Slice bread option (only for bread category, non-mini loaf) */}
-                  {item.product.category?.toLowerCase().includes("bread") && !item.product.isMiniLoafBox && (
+                  {/* Slice bread option (only for bread category items) */}
+                  {item.product.category?.toLowerCase().includes("bread") && (
                     <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
                       <input
                         type="checkbox"
                         checked={item.cut || false}
-                        onChange={() => toggleCut(item.product.id)}
+                        onChange={() => toggleCut(item.product.id, item.selectedBreads)}
                         className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
                       />
                       <span>Pre-sliced (+$1)</span>
@@ -166,6 +166,7 @@ export default function CartPage() {
                 </div>
                 <button
                   onClick={() => removeFromCart(item.product.id, item.selectedBreads)}
+                  className="hidden sm:block text-red-600 hover:text-red-700 font-medium text-sm"
                   className="hidden sm:block text-red-600 hover:text-red-700 font-medium text-sm"
                 >
                   Remove

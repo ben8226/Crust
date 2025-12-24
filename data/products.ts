@@ -110,5 +110,15 @@ export const products: Product[] = [
     category: "Bakery Items",
     inStock: true,
   },
+  {
+    id: "13",
+    name: "Half Loaf Box",
+    description: "Select 2 breads for your half loaf box!",
+    price: 15,
+    image: "/images/Box.JPG",
+    category: "Loaf Boxes",
+    inStock: true,
+    loafType: "half",
+  },
 ];
 
