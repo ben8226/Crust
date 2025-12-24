@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -87,7 +87,7 @@ export default function CheckoutPage() {
   };
 
   // Generate pickup time options based on whether it's a weekend
-  const getPickupTimeOptions = () => {
+  const getPickupTimeOptions = useCallback(() => {
     const allTimes = [
       "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
       "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM",
@@ -103,7 +103,7 @@ export default function CheckoutPage() {
 
     // For weekdays, show all times from 10:00 AM
     return allTimes;
-  };
+  }, [pickupDate]);
 
   // Clear pickup time if it becomes invalid when date changes
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function CheckoutPage() {
         setPickupTime("");
       }
     }
-  }, [pickupDate, pickupTime]);
+  }, [pickupDate, pickupTime, getPickupTimeOptions]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({

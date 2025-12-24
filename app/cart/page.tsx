@@ -167,7 +167,6 @@ export default function CartPage() {
                 <button
                   onClick={() => removeFromCart(item.product.id, item.selectedBreads)}
                   className="hidden sm:block text-red-600 hover:text-red-700 font-medium text-sm"
-                  className="hidden sm:block text-red-600 hover:text-red-700 font-medium text-sm"
                 >
                   Remove
                 </button>

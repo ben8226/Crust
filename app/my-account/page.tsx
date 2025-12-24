@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order } from "@/types/product";
@@ -43,7 +43,7 @@ export default function MyAccountPage() {
     });
   };
 
-  const handlePhoneChange = (value: string) => {
+  const handlePhoneChange = useCallback((value: string) => {
     let digitsOnly = value.replace(/\D/g, "");
 
     // If value starts with +1, that "1" is not part of the 10-digit number.
@@ -58,7 +58,7 @@ export default function MyAccountPage() {
     setPhoneDigits(nextDigits);
     setPhone(formatPhone(nextDigits));
     keepPhoneCursorAtEnd();
-  };
+  }, []);
 
   const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const el = e.currentTarget;
@@ -83,7 +83,7 @@ export default function MyAccountPage() {
       setStoredPhone(saved);
       fetchOrders(saved);
     }
-  }, []);
+  }, [handlePhoneChange]);
 
   const fetchOrders = async (phoneValue: string) => {
     const trimmed = phoneValue.trim();
