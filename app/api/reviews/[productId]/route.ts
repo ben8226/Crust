@@ -15,6 +15,7 @@ export async function GET(
       (order.items || [])
         .map((item) => ({
           review: normalize(item.review),
+          rating: typeof item.rating === "number" ? item.rating : undefined,
           productId: item.product.id,
           productName: item.product.name,
           orderId: order.id,
@@ -22,7 +23,11 @@ export async function GET(
           pickupDate: order.pickupDate,
           pickupTime: order.pickupTime,
         }))
-        .filter((entry) => entry.productId === productId && entry.review.trim().length > 0)
+        .filter(
+          (entry) =>
+            entry.productId === productId &&
+            (entry.review.trim().length > 0 || typeof entry.rating === "number")
+        )
     );
 
     reviews.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());

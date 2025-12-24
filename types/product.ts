@@ -21,6 +21,7 @@ export interface CartItem {
   selectedBreads?: string[]; // For mini loaf box: array of 4 bread product IDs
   cut?: boolean; // Whether bread is sliced (adds $1)
   review?: string; // Optional review for this item when part of an order
+  rating?: number; // Optional 1-5 star rating for this item
 }
 
 export interface Order {

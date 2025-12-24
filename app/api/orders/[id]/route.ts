@@ -32,7 +32,10 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const updates: Partial<Order> & { itemReviews?: Record<number, string> } = {};
+    const updates: Partial<Order> & {
+      itemReviews?: Record<number, string>;
+      itemRatings?: Record<number, number>;
+    } = {};
 
     // Allow updating completed status
     if (typeof body.completed === "boolean") {
@@ -60,6 +63,21 @@ export async function PATCH(
       });
       if (Object.keys(clean).length > 0) {
         updates.itemReviews = clean;
+      }
+    }
+
+    // Allow updating item-level ratings (1-5)
+    if (body.itemRatings && typeof body.itemRatings === "object") {
+      const clean: Record<number, number> = {};
+      Object.entries(body.itemRatings).forEach(([k, v]) => {
+        const idx = Number(k);
+        const rating = typeof v === "number" ? v : Number(v);
+        if (!Number.isNaN(idx) && Number.isFinite(rating) && rating >= 1 && rating <= 5) {
+          clean[idx] = rating;
+        }
+      });
+      if (Object.keys(clean).length > 0) {
+        updates.itemRatings = clean;
       }
     }
 

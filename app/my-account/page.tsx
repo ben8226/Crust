@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Order } from "@/types/product";
+import { Order, Product } from "@/types/product";
 import { formatPickupDisplay } from "@/lib/date";
 
-type Tab = "orders" | "loyalty";
+type Tab = "orders" | "status" | "loyalty";
 
 
 export default function MyAccountPage() {
@@ -15,10 +15,13 @@ export default function MyAccountPage() {
   const [phoneDigits, setPhoneDigits] = useState(""); // 10-digit US phone (no country code)
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [cancellingOrders, setCancellingOrders] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("loyalty");
   const [reviewEdits, setReviewEdits] = useState<Record<string, Record<number, string>>>({});
+  const [ratingEdits, setRatingEdits] = useState<Record<string, Record<number, number>>>({});
   const [orderReviewEdits, setOrderReviewEdits] = useState<Record<string, string>>({});
   const [openItemReviews, setOpenItemReviews] = useState<Record<string, Record<number, boolean>>>({});
   const [openOrderReviews, setOpenOrderReviews] = useState<Record<string, boolean>>({});
@@ -92,19 +95,27 @@ export default function MyAccountPage() {
     setIsLoading(true);
     setHasFetched(true);
     try {
-      const res = await fetch(`/api/orders?phone=${encodeURIComponent(trimmed)}`);
-      if (res.ok) {
-        const data: Order[] = await res.json();
+      const [ordersRes, productsRes] = await Promise.all([
+        fetch(`/api/orders?phone=${encodeURIComponent(trimmed)}`),
+        fetch("/api/products"),
+      ]);
+
+      if (ordersRes.ok) {
+        const data: Order[] = await ordersRes.json();
         setOrders(data);
 
         const itemsReviews: Record<string, Record<number, string>> = {};
+        const itemsRatings: Record<string, Record<number, number>> = {};
         const overallReviews: Record<string, string> = {};
         data.forEach((order) => {
           const map: Record<number, string> = {};
+          const rmap: Record<number, number> = {};
           order.items.forEach((item, idx) => {
             map[idx] = item.review || "";
+            rmap[idx] = typeof item.rating === "number" ? item.rating : 0;
           });
           itemsReviews[order.id] = map;
+          itemsRatings[order.id] = rmap;
           overallReviews[order.id] = order.review || "";
         });
         const openOverall: Record<string, boolean> = {};
@@ -113,6 +124,7 @@ export default function MyAccountPage() {
         });
 
         setReviewEdits(itemsReviews);
+        setRatingEdits(itemsRatings);
         setOrderReviewEdits(overallReviews);
         setOpenItemReviews({});
         setOpenOrderReviews(openOverall);
@@ -123,19 +135,70 @@ export default function MyAccountPage() {
       } else {
         setOrders([]);
         setReviewEdits({});
+        setRatingEdits({});
         setOrderReviewEdits({});
         setOpenItemReviews({});
         setOpenOrderReviews({});
       }
+
+      if (productsRes.ok) {
+        const products: Product[] = await productsRes.json();
+        setAllProducts(products);
+      } else {
+        setAllProducts([]);
+      }
     } catch (err) {
       console.error("Error fetching orders by phone:", err);
       setOrders([]);
+      setAllProducts([]);
       setReviewEdits({});
+      setRatingEdits({});
       setOrderReviewEdits({});
       setOpenItemReviews({});
       setOpenOrderReviews({});
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getBreadName = (breadId: string) => {
+    const bread = allProducts.find((p) => p.id === breadId);
+    return bread?.name || breadId;
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm("Are you sure you want to cancel this order? This cannot be undone.")) {
+      return;
+    }
+
+    setCancellingOrders((prev) => new Set(prev).add(orderId));
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelled: true }),
+      });
+
+      if (response.ok) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === orderId
+              ? { ...order, cancelled: true, cancelledDate: new Date().toISOString() }
+              : order
+          )
+        );
+      } else {
+        alert("Failed to cancel order. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      alert("Error cancelling order. Please try again.");
+    } finally {
+      setCancellingOrders((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
     }
   };
 
@@ -158,6 +221,16 @@ export default function MyAccountPage() {
 
   const handleReviewChange = (orderId: string, itemIndex: number, value: string) => {
     setReviewEdits((prev) => ({
+      ...prev,
+      [orderId]: {
+        ...(prev[orderId] || {}),
+        [itemIndex]: value,
+      },
+    }));
+  };
+
+  const handleRatingChange = (orderId: string, itemIndex: number, value: number) => {
+    setRatingEdits((prev) => ({
       ...prev,
       [orderId]: {
         ...(prev[orderId] || {}),
@@ -189,13 +262,18 @@ export default function MyAccountPage() {
 
   const handleSaveReview = async (orderId: string, itemIndex: number) => {
     const review = reviewEdits[orderId]?.[itemIndex] ?? "";
+    const rating = ratingEdits[orderId]?.[itemIndex] ?? 0;
     const savingKey = `${orderId}-${itemIndex}`;
     setSavingReviews((prev) => new Set(prev).add(savingKey));
     try {
+      const body: any = { itemReviews: { [itemIndex]: review } };
+      if (rating >= 1 && rating <= 5) {
+        body.itemRatings = { [itemIndex]: rating };
+      }
       const res = await fetch(`/api/orders/${orderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemReviews: { [itemIndex]: review } }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         const updated = await res.json();
@@ -286,6 +364,16 @@ export default function MyAccountPage() {
               Loyalty Rewards
             </button>
             <button
+              onClick={() => setActiveTab("status")}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === "status"
+                  ? "border-brown-600 text-brown-700"
+                  : "border-transparent text-gray-600 hover:text-brown-700"
+              }`}
+            >
+              Order Status
+            </button>
+            <button
               onClick={() => setActiveTab("orders")}
               className={`px-4 py-2 font-medium border-b-2 transition-colors ${
                 activeTab === "orders"
@@ -297,6 +385,96 @@ export default function MyAccountPage() {
             </button>
           </div>
         </div>
+
+        {activeTab === "status" && hasFetched && (
+          <div className="space-y-4">
+            {orders.filter((o) => !o.completed && !o.cancelled).length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-6 text-center text-gray-600">
+                No pending orders found for this phone number.
+              </div>
+            ) : (
+              orders
+                .filter((o) => !o.completed && !o.cancelled)
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((order) => (
+                  <div key={order.id} className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="text-lg sm:text-xl font-bold text-gray-900">Order #{order.id}</h3>
+                          <span className="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full">
+                            Pending
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          Ordered on{" "}
+                          {new Date(order.date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <p className="text-2xl font-bold text-gray-900">${order.total.toFixed(2)}</p>
+                        <button
+                          onClick={() => handleCancelOrder(order.id)}
+                          disabled={cancellingOrders.has(order.id)}
+                          className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                        >
+                          {cancellingOrders.has(order.id) ? "Cancelling..." : "Cancel Order"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {order.pickupDate && order.pickupTime && (
+                      <div className="bg-brown-50 rounded-lg p-4 mb-4 text-center">
+                        <p className="text-sm text-gray-600 mb-1">Scheduled Pickup</p>
+                        <p className="text-lg font-bold text-brown-700">
+                          {formatPickupDisplay(order.pickupDate, {
+                            weekday: "long",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                        <p className="text-base font-semibold text-brown-600">{order.pickupTime}</p>
+                      </div>
+                    )}
+
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Items</p>
+                      <div className="space-y-2">
+                        {order.items.map((item, index) => (
+                          <div key={index} className="text-sm">
+                            <div className="flex justify-between text-gray-700">
+                              <span>
+                                {item.product.name} × {item.quantity}
+                              </span>
+                              <span>${(item.product.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                            {(item.product.loafType === "mini" || item.product.loafType === "half") &&
+                              item.selectedBreads &&
+                              item.selectedBreads.length > 0 && (
+                                <div className="ml-4 mt-1 text-xs text-gray-600">
+                                  <p className="font-medium">Selected Breads:</p>
+                                  <ul className="list-disc list-inside">
+                                    {item.selectedBreads.map((breadId, idx) => (
+                                      <li key={idx}>{getBreadName(breadId)}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        )}
 
         {activeTab === "orders" && hasFetched && (
           <div className="space-y-4">
@@ -329,6 +507,29 @@ export default function MyAccountPage() {
                           </div>
                           {isOpen && (
                             <div className="mt-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm font-medium text-gray-800">Rating</p>
+                                <div className="flex items-center gap-1">
+                                  {Array.from({ length: 5 }, (_, i) => {
+                                    const starValue = i + 1;
+                                    const current = ratingEdits[order.id]?.[idx] ?? 0;
+                                    const active = starValue <= current;
+                                    return (
+                                      <button
+                                        key={starValue}
+                                        type="button"
+                                        onClick={() => handleRatingChange(order.id, idx, starValue)}
+                                        className={`text-xl leading-none transition-colors ${
+                                          active ? "text-yellow-500" : "text-gray-300 hover:text-yellow-400"
+                                        }`}
+                                        aria-label={`${starValue} star${starValue === 1 ? "" : "s"}`}
+                                      >
+                                        ★
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                               <textarea
                                 value={reviewEdits[order.id]?.[idx] ?? ""}
                                 onChange={(e) => handleReviewChange(order.id, idx, e.target.value)}

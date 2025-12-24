@@ -94,7 +94,10 @@ export async function getOrderById(id: string): Promise<Order | null> {
   }
 }
 
-type OrderUpdatePayload = Partial<Order> & { itemReviews?: Record<number, string> };
+type OrderUpdatePayload = Partial<Order> & {
+  itemReviews?: Record<number, string>;
+  itemRatings?: Record<number, number>;
+};
 
 // Update order (e.g., mark as completed)
 export async function updateOrder(orderId: string, updates: OrderUpdatePayload): Promise<Order | null> {
@@ -113,19 +116,26 @@ export async function updateOrder(orderId: string, updates: OrderUpdatePayload):
       return null;
     }
     
-    // Apply item-level review updates if provided
+    // Apply item-level review/rating updates if provided
     let updatedItems = orders[orderIndex].items;
-    if (updates.itemReviews && orders[orderIndex].items) {
+    if ((updates.itemReviews || updates.itemRatings) && orders[orderIndex].items) {
       updatedItems = orders[orderIndex].items.map((item, idx) => {
-        if (Object.prototype.hasOwnProperty.call(updates.itemReviews!, idx)) {
-          return { ...item, review: updates.itemReviews![idx] };
+        const next: any = { ...item };
+
+        if (updates.itemReviews && Object.prototype.hasOwnProperty.call(updates.itemReviews, idx)) {
+          next.review = updates.itemReviews[idx];
         }
-        return item;
+
+        if (updates.itemRatings && Object.prototype.hasOwnProperty.call(updates.itemRatings, idx)) {
+          next.rating = updates.itemRatings[idx];
+        }
+
+        return next;
       });
     }
 
     // Update the order
-    const { itemReviews, ...restUpdates } = updates;
+    const { itemReviews, itemRatings, ...restUpdates } = updates;
     orders[orderIndex] = {
       ...orders[orderIndex],
       ...restUpdates,
