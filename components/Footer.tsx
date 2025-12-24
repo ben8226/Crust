@@ -27,6 +27,9 @@ export default function Footer() {
       <p className="text-sm sm:text-base text-gray-600 text-center">
         These products are homemade and not subject to state inspection. Minnesota Cottage Food Producer License #20273109
       </p>
+      <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center">
+        Disclaimer: This is a home bakery. Products may be subject to cross-contamination. We are not allergy-friendly.
+      </p>
       <div className="mt-2 text-sm text-center">
         <Link
           href="/updates"
