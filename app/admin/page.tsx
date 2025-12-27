@@ -990,9 +990,9 @@ export default function AdminPage() {
                                     ${(item.product.price * item.quantity + (item.cut ? item.quantity : 0)).toFixed(2)}
                                   </span>
                                 </div>
-                                {(item.product.loafType === 'mini' || item.product.loafType === 'half') && item.selectedBreads && item.selectedBreads.length > 0 && (
+                                {item.selectedBreads && item.selectedBreads.length > 0 && (
                                   <div className="ml-4 mt-1 text-xs text-gray-600">
-                                    <p className="font-medium mb-1">Selected Breads:</p>
+                                    <p className="font-medium mb-1">Sample box picks:</p>
                                     <ul className="list-disc list-inside">
                                       {item.selectedBreads.map((breadId, idx) => {
                                         const bread = products.find((p) => p.id === breadId);
