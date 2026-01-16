@@ -49,7 +49,7 @@ export default function AdminPage() {
     image: "",
     ingredients: "",
     inStock: true,
-    loafType: undefined,
+    isMiniLoafBox: false,
     allergens: {
       wheat: false,
       dairy: false,
@@ -335,7 +335,7 @@ export default function AdminPage() {
           image: editingProduct.image,
           ingredients: editingProduct.ingredients,
           inStock: editingProduct.inStock,
-          loafType: editingProduct.loafType,
+          isMiniLoafBox: editingProduct.isMiniLoafBox,
           allergens: editingProduct.allergens,
         }),
       });
@@ -381,7 +381,7 @@ export default function AdminPage() {
           image: newProduct.image || "",
           ingredients: newProduct.ingredients || "",
           inStock: newProduct.inStock ?? true,
-          loafType: newProduct.loafType,
+          isMiniLoafBox: newProduct.isMiniLoafBox ?? false,
           allergens: newProduct.allergens || { wheat: false, dairy: false, egg: false },
         }),
       });
@@ -390,16 +390,15 @@ export default function AdminPage() {
         const created = await response.json();
         setProducts((prev) => [...prev, created]);
         // Reset form
-                        setNewProduct({
-                              name: "",
-                              description: "",
-                              price: 0,
-                              category: "",
-                              image: "",
-                              ingredients: "",
-                              inStock: true,
-                              loafType: undefined,
-                            });
+        setNewProduct({
+          name: "",
+          description: "",
+          price: 0,
+          category: "",
+          image: "",
+          ingredients: "",
+          inStock: true,
+        });
         setShowNewProductForm(false);
       } else {
         const error = await response.json();
@@ -984,15 +983,14 @@ export default function AdminPage() {
                                 <div className="flex justify-between">
                                   <span>
                                     {item.product.name} × {item.quantity}
-                                    {item.cut && <span className="text-orange-600 font-medium"> (pre-sliced)</span>}
                                   </span>
                                   <span>
-                                    ${(item.product.price * item.quantity + (item.cut ? item.quantity : 0)).toFixed(2)}
+                                    ${(item.product.price * item.quantity).toFixed(2)}
                                   </span>
                                 </div>
-                                {item.selectedBreads && item.selectedBreads.length > 0 && (
+                                {item.product.isMiniLoafBox && item.selectedBreads && item.selectedBreads.length > 0 && (
                                   <div className="ml-4 mt-1 text-xs text-gray-600">
-                                    <p className="font-medium mb-1">Sample box picks:</p>
+                                    <p className="font-medium mb-1">Selected Breads:</p>
                                     <ul className="list-disc list-inside">
                                       {item.selectedBreads.map((breadId, idx) => {
                                         const bread = products.find((p) => p.id === breadId);
@@ -1193,67 +1191,22 @@ export default function AdminPage() {
                               In Stock
                             </span>
                           </label>
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700">
-                              Loaf Type (requires bread selection)
-                            </label>
-                            <div className="flex flex-col gap-2">
-                              <label className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name="loafType"
-                                  value=""
-                                  checked={!newProduct.loafType}
-                                  onChange={(e) =>
-                                    setNewProduct({
-                                      ...newProduct,
-                                      loafType: undefined,
-                                    })
-                                  }
-                                  className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300"
-                                />
-                                <span className="text-sm text-gray-700">
-                                  Regular (no bread selection required)
-                                </span>
-                              </label>
-                              <label className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name="loafType"
-                                  value="mini"
-                                  checked={newProduct.loafType === "mini"}
-                                  onChange={(e) =>
-                                    setNewProduct({
-                                      ...newProduct,
-                                      loafType: "mini",
-                                    })
-                                  }
-                                  className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300"
-                                />
-                                <span className="text-sm text-gray-700">
-                                  Mini Loaf Box
-                                </span>
-                              </label>
-                              <label className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name="loafType"
-                                  value="half"
-                                  checked={newProduct.loafType === "half"}
-                                  onChange={(e) =>
-                                    setNewProduct({
-                                      ...newProduct,
-                                      loafType: "half",
-                                    })
-                                  }
-                                  className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300"
-                                />
-                                <span className="text-sm text-gray-700">
-                                  Half Loaf Box
-                                </span>
-                              </label>
-                            </div>
-                          </div>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={newProduct.isMiniLoafBox ?? false}
+                              onChange={(e) =>
+                                setNewProduct({
+                                  ...newProduct,
+                                  isMiniLoafBox: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              Mini Loaf Box (requires bread selection)
+                            </span>
+                          </label>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1333,7 +1286,7 @@ export default function AdminPage() {
                               image: "",
                               ingredients: "",
                               inStock: true,
-                              loafType: undefined,
+                              isMiniLoafBox: false,
                               allergens: { wheat: false, dairy: false, egg: false },
                             });
                           }}
@@ -1471,67 +1424,22 @@ export default function AdminPage() {
                                 In Stock
                               </span>
                             </label>
-                            <div className="space-y-2">
-                              <label className="block text-sm font-medium text-gray-700">
-                                Loaf Type (requires bread selection)
-                              </label>
-                              <div className="flex flex-col gap-2">
-                                <label className="flex items-center gap-2">
-                                  <input
-                                    type="radio"
-                                    name={`loafType-${editingProduct.id}`}
-                                    value=""
-                                    checked={!editingProduct.loafType}
-                                    onChange={(e) =>
-                                      setEditingProduct({
-                                        ...editingProduct,
-                                        loafType: undefined,
-                                      })
-                                    }
-                                    className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300"
-                                  />
-                                  <span className="text-sm text-gray-700">
-                                    Regular (no bread selection required)
-                                  </span>
-                                </label>
-                                <label className="flex items-center gap-2">
-                                  <input
-                                    type="radio"
-                                    name={`loafType-${editingProduct.id}`}
-                                    value="mini"
-                                    checked={editingProduct.loafType === "mini"}
-                                    onChange={(e) =>
-                                      setEditingProduct({
-                                        ...editingProduct,
-                                        loafType: "mini",
-                                      })
-                                    }
-                                    className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300"
-                                  />
-                                  <span className="text-sm text-gray-700">
-                                    Mini Loaf Box
-                                  </span>
-                                </label>
-                                <label className="flex items-center gap-2">
-                                  <input
-                                    type="radio"
-                                    name={`loafType-${editingProduct.id}`}
-                                    value="half"
-                                    checked={editingProduct.loafType === "half"}
-                                    onChange={(e) =>
-                                      setEditingProduct({
-                                        ...editingProduct,
-                                        loafType: "half",
-                                      })
-                                    }
-                                    className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300"
-                                  />
-                                  <span className="text-sm text-gray-700">
-                                    Half Loaf Box
-                                  </span>
-                                </label>
-                              </div>
-                            </div>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={editingProduct.isMiniLoafBox ?? false}
+                                onChange={(e) =>
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    isMiniLoafBox: e.target.checked,
+                                  })
+                                }
+                                className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm font-medium text-gray-700">
+                                Mini Loaf Box (requires bread selection)
+                              </span>
+                            </label>
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
