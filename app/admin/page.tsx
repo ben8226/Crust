@@ -49,7 +49,7 @@ export default function AdminPage() {
     image: "",
     ingredients: "",
     inStock: true,
-    isMiniLoafBox: false,
+    loafType: undefined,
     allergens: {
       wheat: false,
       dairy: false,
@@ -335,7 +335,7 @@ export default function AdminPage() {
           image: editingProduct.image,
           ingredients: editingProduct.ingredients,
           inStock: editingProduct.inStock,
-          isMiniLoafBox: editingProduct.isMiniLoafBox,
+          loafType: editingProduct.loafType,
           allergens: editingProduct.allergens,
         }),
       });
@@ -381,7 +381,7 @@ export default function AdminPage() {
           image: newProduct.image || "",
           ingredients: newProduct.ingredients || "",
           inStock: newProduct.inStock ?? true,
-          isMiniLoafBox: newProduct.isMiniLoafBox ?? false,
+          loafType: newProduct.loafType,
           allergens: newProduct.allergens || { wheat: false, dairy: false, egg: false },
         }),
       });
@@ -398,6 +398,7 @@ export default function AdminPage() {
           image: "",
           ingredients: "",
           inStock: true,
+          loafType: undefined,
         });
         setShowNewProductForm(false);
       } else {
@@ -988,7 +989,7 @@ export default function AdminPage() {
                                     ${(item.product.price * item.quantity).toFixed(2)}
                                   </span>
                                 </div>
-                                {item.product.isMiniLoafBox && item.selectedBreads && item.selectedBreads.length > 0 && (
+                                {(item.product.loafType === "mini" || item.product.loafType === "half") && item.selectedBreads && item.selectedBreads.length > 0 && (
                                   <div className="ml-4 mt-1 text-xs text-gray-600">
                                     <p className="font-medium mb-1">Selected Breads:</p>
                                     <ul className="list-disc list-inside">
@@ -1194,11 +1195,11 @@ export default function AdminPage() {
                           <label className="flex items-center gap-2">
                             <input
                               type="checkbox"
-                              checked={newProduct.isMiniLoafBox ?? false}
+                              checked={newProduct.loafType === "mini"}
                               onChange={(e) =>
                                 setNewProduct({
                                   ...newProduct,
-                                  isMiniLoafBox: e.target.checked,
+                                  loafType: e.target.checked ? "mini" : undefined,
                                 })
                               }
                               className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
@@ -1286,7 +1287,7 @@ export default function AdminPage() {
                               image: "",
                               ingredients: "",
                               inStock: true,
-                              isMiniLoafBox: false,
+                              loafType: undefined,
                               allergens: { wheat: false, dairy: false, egg: false },
                             });
                           }}
@@ -1427,11 +1428,11 @@ export default function AdminPage() {
                             <label className="flex items-center gap-2">
                               <input
                                 type="checkbox"
-                                checked={editingProduct.isMiniLoafBox ?? false}
+                                checked={editingProduct.loafType === "mini"}
                                 onChange={(e) =>
                                   setEditingProduct({
                                     ...editingProduct,
-                                    isMiniLoafBox: e.target.checked,
+                                    loafType: e.target.checked ? "mini" : undefined,
                                   })
                                 }
                                 className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
