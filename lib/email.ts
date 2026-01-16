@@ -116,6 +116,14 @@ function buildHtml(order: Order, breadNames: Map<string, string>): string {
           </tfoot>
         </table>
 
+        ${order.pickupDate && order.pickupTime ? `
+        <div style="margin:24px 0; text-align:center;">
+          <a href="${getCalendarUrl(order.id)}" style="display:inline-block; background-color:#007AFF; color:#ffffff; text-decoration:none; padding:14px 28px; border-radius:8px; font-weight:600; font-size:16px;">
+            📅 Add to Calendar
+          </a>
+        </div>
+        ` : ""}
+
         <p style="margin:18px 0 0 0; color:#555; font-size:12px;">
           If you have any questions, just reply to this email.
         </p>
@@ -146,6 +154,17 @@ function buildText(order: Order, breadNames: Map<string, string>): string {
   return lines.join("\n");
 }
 
+function getCalendarUrl(orderId: string): string {
+  // Try to get base URL from environment variable
+  // NEXT_PUBLIC_BASE_URL should be set in production (e.g., https://yourdomain.com)
+  // VERCEL_URL is automatically set by Vercel
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+                  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+                  "http://localhost:3000/"; // Fallback - should be set in production
+  
+  return `${baseUrl}/api/orders/${orderId}/calendar`;
+}
+
 export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM;
@@ -163,12 +182,21 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
   const to = (order.email || "").trim();
   if (!to) return;
 
+  // Collect BCC recipients from environment variables
+  const bccEmails: string[] = [];
+  const bcc1 = (process.env.RESEND_BCC_EMAIL || "").trim();
+  const bcc2 = (process.env.RESEND_BCC_EMAIL2 || "").trim();
+  
+  if (bcc1) bccEmails.push(bcc1);
+  if (bcc2) bccEmails.push(bcc2);
+
   const breadNames = await buildBreadNameLookup();
   const resend = new Resend(apiKey);
 
   await resend.emails.send({
     from,
     to,
+    bcc: bccEmails.length > 0 ? bccEmails : undefined,
     subject: `Order Confirmation - ${order.id}`,
     html: buildHtml(order, breadNames),
     text: buildText(order, breadNames),

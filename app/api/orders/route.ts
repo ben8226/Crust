@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { saveOrder, getOrders } from "@/lib/db";
 import { Order } from "@/types/product";
 import { sendCustomerConfirmation, sendStoreOwnerNotification } from "@/lib/sms";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -11,6 +12,7 @@ export async function POST(request: Request) {
     const requiredFields = [
       "customerName",
       "phone",
+      "email",
       "items",
       "total",
     ];
@@ -53,6 +55,7 @@ export async function POST(request: Request) {
       paymentMethod: body.paymentMethod || "cash", // Default to cash if not provided
       pickupDate: body.pickupDate,
       pickupTime: body.pickupTime,
+      email: body.email, // Optional email for order confirmation
     };
 
     // Save order
@@ -80,6 +83,14 @@ export async function POST(request: Request) {
     } catch (smsError) {
       // Log but don't fail the order if SMS fails
       console.error("SMS notification error (order still saved):", smsError);
+    }
+
+    // Send email confirmation (non-blocking)
+    try {
+      await sendOrderConfirmationEmail(order);
+    } catch (emailError) {
+      // Log but don't fail the order if email fails
+      console.error("Email notification error (order still saved):", emailError);
     }
 
     return NextResponse.json(order, { status: 201 });

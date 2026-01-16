@@ -1,5 +1,6 @@
-import { getOrderById } from "@/lib/db";
+import { getOrderById, getProducts } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { Product } from "@/types/product";
 
 const TIME_ZONE = "America/Chicago";
 
@@ -83,17 +84,55 @@ export async function GET(
     const dtstart = formatIcsUtc(dtStartUtc);
     const dtend = formatIcsUtc(dtEndUtc);
 
+    // Get all products to resolve bread names
+    const allProducts = await getProducts();
+    const breadNameMap = new Map<string, string>();
+    (allProducts || []).forEach((p: Product) => breadNameMap.set(p.id, p.name));
+
+    const getBreadName = (breadId: string): string => {
+      return breadNameMap.get(breadId) || breadId;
+    };
+
     const pickupAddress = (process.env.NEXT_PUBLIC_PICKUP_ADDRESS || "").trim();
-    const summary = "Crust + Culture Pickup";
-    const descriptionLines = [
-      `Order #${order.id}`,
-      `Name: ${order.customerName}`,
-      `Phone: ${order.phone}`,
-      `Payment: ${order.paymentMethod === "venmo" ? "Venmo (pre-pay)" : "Cash (at pickup)"}`,
-      `Total: $${order.total.toFixed(2)}`,
-      "",
-      `Pickup: ${order.pickupDate} ${order.pickupTime} (Central Time)`,
-    ];
+    
+    // Extract first name from customer name
+    const firstName = order.customerName.split(" ")[0] || order.customerName;
+    
+    // Build items list for summary (concise format)
+    const itemsList = order.items.map((item) => {
+      const slicing = item.cut ? " (sliced)" : "";
+      return `${item.product.name} × ${item.quantity}${slicing}`;
+    }).join(", ");
+    
+    const summary = `${firstName} - ${itemsList}`;
+    
+    // Build detailed description with order items
+    const descriptionLines: string[] = [];
+    
+    descriptionLines.push(`Payment: ${order.paymentMethod === "venmo" ? "Venmo (pre-pay)" : "Cash (at pickup)"}`);
+    descriptionLines.push("");
+    descriptionLines.push("Items:");
+    
+    order.items.forEach((item) => {
+      const itemPrice = item.product.price * item.quantity;
+      const slicingFee = item.cut ? item.quantity : 0;
+      const totalItemPrice = itemPrice + slicingFee;
+      const slicing = item.cut ? " (pre-sliced)" : "";
+      descriptionLines.push(`- ${item.product.name} × ${item.quantity}${slicing} - $${totalItemPrice.toFixed(2)}`);
+      
+      // Add selected breads for mini/half loaf boxes
+      if (item.selectedBreads && item.selectedBreads.length > 0) {
+        const breadNames = item.selectedBreads.map((id) => getBreadName(id));
+        descriptionLines.push(`  Box picks: ${breadNames.join(", ")}`);
+      }
+    });
+    
+    descriptionLines.push("");
+    descriptionLines.push(`Total: $${order.total.toFixed(2)}`);
+    descriptionLines.push("");
+    descriptionLines.push(`Order #: ${order.id}`);
+    descriptionLines.push("");
+    descriptionLines.push(`Pickup: ${order.pickupDate} ${order.pickupTime} (Central Time)`);
 
     const ics = [
       "BEGIN:VCALENDAR",

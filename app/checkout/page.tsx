@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useCart } from "@/contexts/CartContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -15,7 +15,8 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     customerName: "",
-    phone: "",
+    phone: "+1 ",
+    email: "",
   });
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
   const [pickupDate, setPickupDate] = useState<Date | null>(null);
@@ -23,6 +24,7 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate min and max dates (2 days from today to one month in future)
   const minDate = new Date();
@@ -77,11 +79,69 @@ export default function CheckoutPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+  // Phone number formatting
+  const formatPhone = (digits: string): string => {
+    const d = (digits || "").slice(0, 10);
+    if (d.length === 0) return "+1 ";
+    if (d.length <= 3) return `+1 (${d}`;
+    if (d.length <= 6) return `+1 (${d.slice(0, 3)}) ${d.slice(3)}`;
+    return `+1 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  };
+
+  const keepPhoneCursorAtEnd = () => {
+    requestAnimationFrame(() => {
+      const el = phoneInputRef.current;
+      if (!el) return;
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
     });
+  };
+
+  const handlePhoneChange = useCallback((value: string) => {
+    let digitsOnly = value.replace(/\D/g, "");
+
+    // If value starts with +1, that "1" is not part of the 10-digit number.
+    if (value.trim().startsWith("+1") && digitsOnly.startsWith("1")) {
+      digitsOnly = digitsOnly.slice(1);
+    } else if (digitsOnly.length > 10 && digitsOnly.startsWith("1")) {
+      // Also handle pasted values like "1" + 10 digits
+      digitsOnly = digitsOnly.slice(1);
+    }
+
+    const nextDigits = digitsOnly.slice(0, 10);
+    const formatted = formatPhone(nextDigits);
+    setFormData((prev) => ({
+      ...prev,
+      phone: formatted,
+    }));
+    keepPhoneCursorAtEnd();
+  }, []);
+
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+
+    // Prevent deleting/modifying the "+1 " prefix
+    const prefixLength = 3; // "+1 "
+    const isBackspace = e.key === "Backspace";
+    const isDelete = e.key === "Delete";
+
+    if ((isBackspace || isDelete) && start <= prefixLength && end <= prefixLength) {
+      e.preventDefault();
+      keepPhoneCursorAtEnd();
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.name === "phone") {
+      handlePhoneChange(e.target.value);
+    } else {
+      setFormData({
+        ...formData,
+        [e.target.name]: e.target.value,
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,6 +161,9 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     try {
+      // Extract digits from phone number for submission
+      const phoneDigits = formData.phone.replace(/\D/g, "");
+      
       // Submit order to API
       const response = await fetch("/api/orders", {
         method: "POST",
@@ -109,7 +172,9 @@ export default function CheckoutPage() {
         },
         body: JSON.stringify({
           items: cart,
-          ...formData,
+          customerName: formData.customerName,
+          phone: phoneDigits,
+          email: formData.email,
           total: getTotalPrice(),
           paymentMethod: paymentMethod,
           pickupDate: getDateString(pickupDate),
@@ -207,14 +272,36 @@ export default function CheckoutPage() {
                   Phone Number *
                 </label>
                 <input
+                  ref={phoneInputRef}
                   type="tel"
                   id="phone"
                   name="phone"
                   required
                   value={formData.phone}
                   onChange={handleChange}
+                  onKeyDown={handlePhoneKeyDown}
+                  placeholder="+1 (123) 456-7890"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="your@email.com"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  We&apos;ll send you an order confirmation email
+                </p>
               </div>
 
               <div className="border-t pt-4 sm:pt-6">
