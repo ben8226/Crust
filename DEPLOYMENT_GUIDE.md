@@ -41,15 +41,9 @@ This guide will help you deploy your product ordering website so it's accessible
    - Vercel will auto-detect Next.js settings
    - Click "Deploy"
 
-4. **Add Environment Variables:**
+4. **Add Environment Variables (if needed):**
    - In your Vercel project dashboard, go to Settings → Environment Variables
-   - Add these variables:
-     ```
-     TWILIO_ACCOUNT_SID=your_value
-     TWILIO_AUTH_TOKEN=your_value
-     TWILIO_PHONE_NUMBER=your_value
-     STORE_OWNER_PHONE=your_value
-     ```
+   - Add any required environment variables for your app
    - Redeploy after adding variables
 
 5. **Your site will be live at:**
@@ -84,7 +78,7 @@ This guide will help you deploy your product ordering website so it's accessible
 
 3. **Add Environment Variables:**
    - Site settings → Environment variables
-   - Add your Twilio credentials
+   - Add any required environment variables for your app
 
 ---
 
@@ -133,14 +127,7 @@ Before deploying, make sure:
 
 ### For Vercel/Netlify:
 
-1. **In your hosting dashboard**, add these environment variables:
-
-```
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
-TWILIO_PHONE_NUMBER=+1234567890
-STORE_OWNER_PHONE=+1234567890
-```
+1. **In your hosting dashboard**, add any required environment variables for your app
 
 2. **After adding variables**, redeploy your site
 
@@ -148,7 +135,6 @@ STORE_OWNER_PHONE=+1234567890
 
 - ⚠️ Never commit `.env.local` to git
 - ⚠️ Environment variables are case-sensitive
-- ⚠️ Phone numbers must include country code (+1 for US)
 
 ## Custom Domain Setup
 
@@ -179,7 +165,6 @@ STORE_OWNER_PHONE=+1234567890
 1. **Test your live site:**
    - Visit your deployed URL
    - Test placing an order
-   - Verify SMS notifications work
 
 2. **Update any hardcoded URLs:**
    - Check if you have any localhost references
@@ -187,7 +172,6 @@ STORE_OWNER_PHONE=+1234567890
 
 3. **Monitor:**
    - Check Vercel/Netlify dashboard for errors
-   - Monitor Twilio console for SMS delivery
 
 ## Troubleshooting
 
@@ -198,12 +182,6 @@ STORE_OWNER_PHONE=+1234567890
   - Missing dependencies (run `npm install`)
   - TypeScript errors
   - Missing environment variables
-
-### SMS Not Working
-
-- Verify environment variables are set in hosting dashboard
-- Check Twilio console for errors
-- Ensure phone numbers are in correct format
 
 ### Images Not Loading
 
@@ -217,13 +195,11 @@ STORE_OWNER_PHONE=+1234567890
 
 - **Vercel**: Free for personal projects
 - **Netlify**: Free tier available
-- **Twilio**: $15.50 free credit, then ~$0.0075 per SMS
 - **Domain**: ~$10-15/year (optional)
 
 ### Paid (if you need more):
 
 - Vercel Pro: $20/month
-- More Twilio credits as needed
 - Custom domain: ~$10-15/year
 
 ## Quick Start (Vercel - Easiest)

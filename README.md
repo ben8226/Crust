@@ -8,7 +8,6 @@ A modern, full-stack product ordering website built with Next.js, TypeScript, an
 - 🛒 **Shopping Cart** - Add products to cart, update quantities, and manage items
 - 💳 **Checkout Process** - Complete order form with customer information
 - ✅ **Order Confirmation** - View order details and confirmation
-- 📱 **SMS Notifications** - Automatic text messages to customers and store owner
 - 🔌 **RESTful API** - Next.js API routes for products and orders
 - 💾 **Data Persistence** - Orders saved to file system (JSON)
 - 📱 **Responsive Design** - Works beautifully on all devices
@@ -27,16 +26,7 @@ A modern, full-stack product ordering website built with Next.js, TypeScript, an
 npm install
 ```
 
-2. Install dependencies (including Twilio for SMS):
-```bash
-npm install
-```
-
-3. Set up SMS notifications (optional):
-   - See `SMS_SETUP.md` for detailed instructions
-   - Create `.env.local` with your Twilio credentials
-
-4. Run the development server:
+2. Run the development server:
 ```bash
 npm run dev
 ```
@@ -149,14 +139,6 @@ For other hosting platforms or custom setups, consider:
 - SQLite
 - Supabase
 - PlanetScale
-
-## SMS Notifications
-
-The app includes SMS notification functionality using Twilio:
-- **Customer Confirmation**: Customers receive a text when they place an order
-- **Store Owner Alerts**: Store owner receives notifications for new orders
-
-See `SMS_SETUP.md` for complete setup instructions.
 
 ## Future Enhancements
 

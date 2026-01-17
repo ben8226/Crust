@@ -18,6 +18,7 @@ export default function CheckoutPage() {
     phone: "+1 ",
     email: "",
   });
+  const [smsConsent, setSmsConsent] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
   const [pickupDate, setPickupDate] = useState<Date | null>(null);
   const [pickupTime, setPickupTime] = useState("");
@@ -179,6 +180,7 @@ export default function CheckoutPage() {
           paymentMethod: paymentMethod,
           pickupDate: getDateString(pickupDate),
           pickupTime: pickupTime,
+          smsConsent: smsConsent,
         }),
       });
 
@@ -283,6 +285,22 @@ export default function CheckoutPage() {
                   placeholder="+1 (123) 456-7890"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+                <div className="mt-2">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="smsConsent"
+                      name="smsConsent"
+                      required
+                      checked={smsConsent}
+                      onChange={(e) => setSmsConsent(e.target.checked)}
+                      className="mt-1 w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">
+                      I consent to receive order confirmation text messages *
+                    </span>
+                  </label>
+                </div>
               </div>
 
               <div>

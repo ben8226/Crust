@@ -111,7 +111,6 @@ export async function GET(
     
     descriptionLines.push(`Payment: ${order.paymentMethod === "venmo" ? "Venmo (pre-pay)" : "Cash (at pickup)"}`);
     descriptionLines.push("");
-    descriptionLines.push("Items:");
     
     order.items.forEach((item) => {
       const itemPrice = item.product.price * item.quantity;

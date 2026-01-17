@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { saveOrder, getOrders } from "@/lib/db";
 import { Order } from "@/types/product";
-import { sendCustomerConfirmation, sendStoreOwnerNotification } from "@/lib/sms";
 import { sendOrderConfirmationEmail } from "@/lib/email";
+import { sendOrderConfirmationSMS } from "@/lib/sms";
 
 export async function POST(request: Request) {
   try {
@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       pickupDate: body.pickupDate,
       pickupTime: body.pickupTime,
       email: body.email, // Optional email for order confirmation
+      smsConsent: body.smsConsent || false, // SMS consent from customer
     };
 
     // Save order
@@ -74,23 +75,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Send SMS notifications (non-blocking)
-    try {
-      await Promise.all([
-        sendCustomerConfirmation(order),
-        sendStoreOwnerNotification(order),
-      ]);
-    } catch (smsError) {
-      // Log but don't fail the order if SMS fails
-      console.error("SMS notification error (order still saved):", smsError);
-    }
-
     // Send email confirmation (non-blocking)
     try {
       await sendOrderConfirmationEmail(order);
     } catch (emailError) {
       // Log but don't fail the order if email fails
       console.error("Email notification error (order still saved):", emailError);
+    }
+
+    // Send SMS confirmation if consent was given (non-blocking)
+    if (order.smsConsent) {
+      try {
+        await sendOrderConfirmationSMS(order);
+      } catch (smsError) {
+        // Log but don't fail the order if SMS fails
+        console.error("SMS notification error (order still saved):", smsError);
+      }
     }
 
     return NextResponse.json(order, { status: 201 });
