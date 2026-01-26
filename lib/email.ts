@@ -124,6 +124,15 @@ function buildHtml(order: Order, breadNames: Map<string, string>): string {
         </div>
         ` : ""}
 
+        ${process.env.NEXT_PUBLIC_PICKUP_ADDRESS ? `
+        <div style="margin:24px 0; padding:16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+          <div style="color:#666; font-size:12px; margin-bottom:8px; font-weight:600;">Pickup Location</div>
+          <a href="https://maps.apple.com/?address=${encodeURIComponent(process.env.NEXT_PUBLIC_PICKUP_ADDRESS)}" style="color:#007AFF; text-decoration:none; font-size:14px; font-weight:500;">
+            📍 ${escapeHtml(process.env.NEXT_PUBLIC_PICKUP_ADDRESS)}
+          </a>
+        </div>
+        ` : ""}
+
         <p style="margin:18px 0 0 0; color:#555; font-size:12px;">
           If you have any questions, just reply to this email.
         </p>
@@ -151,6 +160,12 @@ function buildText(order: Order, breadNames: Map<string, string>): string {
   });
   lines.push("");
   lines.push(`Total: $${order.total.toFixed(2)}`);
+  if (process.env.NEXT_PUBLIC_PICKUP_ADDRESS) {
+    lines.push("");
+    lines.push("Pickup Location:");
+    lines.push(process.env.NEXT_PUBLIC_PICKUP_ADDRESS);
+    lines.push(`Apple Maps: https://maps.apple.com/?address=${encodeURIComponent(process.env.NEXT_PUBLIC_PICKUP_ADDRESS)}`);
+  }
   return lines.join("\n");
 }
 
@@ -185,7 +200,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
   // Collect BCC recipients from environment variables
   const bccEmails: string[] = [];
   const bcc1 = (process.env.RESEND_BCC_EMAIL || "").trim();
-  const bcc2 = (process.env.RESEND_BCC_EMAIL2 || "").trim();
+  const bcc2 = (process.env.RESEND_BCC_EMAIL_2 || "").trim();
   
   if (bcc1) bccEmails.push(bcc1);
   if (bcc2) bccEmails.push(bcc2);
