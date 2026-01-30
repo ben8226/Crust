@@ -56,6 +56,69 @@ export default function CheckoutPage() {
     return blockedDates.includes(dateString);
   };
 
+  // Check if a date is a weekend (Saturday = 6, Sunday = 0)
+  const isWeekend = (date: Date | null): boolean => {
+    if (!date) return false;
+    const day = date.getDay();
+    return day === 0 || day === 6; // Sunday or Saturday
+  };
+
+  // Get available pickup times based on whether it's a weekend
+  const getAvailableTimes = (): string[] => {
+    const isWeekendDate = isWeekend(pickupDate);
+    
+    if (isWeekendDate) {
+      // Weekend times: start at 11:00 AM
+      return [
+        "12:00 PM",
+        "12:30 PM",
+        "1:00 PM",
+        "1:30 PM",
+        "2:00 PM",
+        "2:30 PM",
+        "3:00 PM",
+        "3:30 PM",
+        "4:00 PM",
+        "4:30 PM",
+        "5:00 PM",
+        "5:30 PM",
+        "6:00 PM",
+      ];
+    } else {
+      // Weekday times: start at 10:00 AM
+      return [
+        "10:00 AM",
+        "10:30 AM",
+        "11:00 AM",
+        "11:30 AM",
+        "12:00 PM",
+        "12:30 PM",
+        "1:00 PM",
+        "1:30 PM",
+        "2:00 PM",
+        "2:30 PM",
+        "3:00 PM",
+        "3:30 PM",
+        "4:00 PM",
+        "4:30 PM",
+        "5:00 PM",
+        "5:30 PM",
+        "6:00 PM",
+      ];
+    }
+  };
+
+  // Reset pickup time if it's no longer valid when date changes
+  useEffect(() => {
+    if (pickupDate && pickupTime) {
+      const availableTimes = getAvailableTimes();
+      if (!availableTimes.includes(pickupTime)) {
+        setPickupTime("");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupDate]);
+
   // Convert Date to string for form submission (local, no UTC shift)
   const getDateString = (date: Date | null): string => {
     if (!date) return "";
@@ -340,27 +403,23 @@ export default function CheckoutPage() {
                       required
                       value={pickupTime}
                       onChange={(e) => setPickupTime(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                      disabled={!pickupDate}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
-                      <option value="">Select a time</option>
-                      <option value="10:00 AM">10:00 AM</option>
-                      <option value="10:30 AM">10:30 AM</option>
-                      <option value="11:00 AM">11:00 AM</option>
-                      <option value="11:30 AM">11:30 AM</option>
-                      <option value="12:00 PM">12:00 PM</option>
-                      <option value="12:30 PM">12:30 PM</option>
-                      <option value="1:00 PM">1:00 PM</option>
-                      <option value="1:30 PM">1:30 PM</option>
-                      <option value="2:00 PM">2:00 PM</option>
-                      <option value="2:30 PM">2:30 PM</option>
-                      <option value="3:00 PM">3:00 PM</option>
-                      <option value="3:30 PM">3:30 PM</option>
-                      <option value="4:00 PM">4:00 PM</option>
-                      <option value="4:30 PM">4:30 PM</option>
-                      <option value="5:00 PM">5:00 PM</option>
-                      <option value="5:30 PM">5:30 PM</option>
-                      <option value="6:00 PM">6:00 PM</option>
+                      <option value="">{pickupDate ? "Select a time" : "Select a date first"}</option>
+                      {getAvailableTimes().map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
                     </select>
+                    {pickupDate && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {isWeekend(pickupDate) 
+                          ? "Weekend hours: 12:00 PM - 6:00 PM" 
+                          : "Weekday hours: 10:00 AM - 6:00 PM"}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
