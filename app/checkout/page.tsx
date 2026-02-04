@@ -87,10 +87,6 @@ export default function CheckoutPage() {
     } else {
       // Weekday times: start at 10:00 AM
       return [
-        "10:00 AM",
-        "10:30 AM",
-        "11:00 AM",
-        "11:30 AM",
         "12:00 PM",
         "12:30 PM",
         "1:00 PM",
@@ -417,7 +413,7 @@ export default function CheckoutPage() {
                       <p className="text-xs text-gray-500 mt-1">
                         {isWeekend(pickupDate) 
                           ? "Weekend hours: 12:00 PM - 6:00 PM" 
-                          : "Weekday hours: 10:00 AM - 6:00 PM"}
+                          : "Weekday hours: 12:00 AM - 6:00 PM"}
                       </p>
                     )}
                   </div>

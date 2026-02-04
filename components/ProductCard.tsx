@@ -57,6 +57,11 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
+        {product.limitedTime && (
+          <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold shadow-md">
+            Limited Time
+          </div>
+        )}
         {!product.inStock && (
           <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm font-semibold">
             Out of Stock

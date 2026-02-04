@@ -55,6 +55,7 @@ export default function AdminPage() {
       dairy: false,
       egg: false,
     },
+    limitedTime: false,
   });
 
   // Calendar state
@@ -337,6 +338,7 @@ export default function AdminPage() {
           inStock: editingProduct.inStock,
           loafType: editingProduct.loafType,
           allergens: editingProduct.allergens,
+          limitedTime: editingProduct.limitedTime,
         }),
       });
 
@@ -383,6 +385,7 @@ export default function AdminPage() {
           inStock: newProduct.inStock ?? true,
           loafType: newProduct.loafType,
           allergens: newProduct.allergens || { wheat: false, dairy: false, egg: false },
+          limitedTime: newProduct.limitedTime ?? false,
         }),
       });
 
@@ -399,6 +402,7 @@ export default function AdminPage() {
           ingredients: "",
           inStock: true,
           loafType: undefined,
+          limitedTime: false,
         });
         setShowNewProductForm(false);
       } else {
@@ -1208,6 +1212,22 @@ export default function AdminPage() {
                               Mini Loaf Box (requires bread selection)
                             </span>
                           </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={newProduct.limitedTime ?? false}
+                              onChange={(e) =>
+                                setNewProduct({
+                                  ...newProduct,
+                                  limitedTime: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              Limited time product
+                            </span>
+                          </label>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1289,6 +1309,7 @@ export default function AdminPage() {
                               inStock: true,
                               loafType: undefined,
                               allergens: { wheat: false, dairy: false, egg: false },
+                              limitedTime: false,
                             });
                           }}
                           className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
@@ -1439,6 +1460,22 @@ export default function AdminPage() {
                               />
                               <span className="text-sm font-medium text-gray-700">
                                 Mini Loaf Box (requires bread selection)
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={editingProduct.limitedTime ?? false}
+                                onChange={(e) =>
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    limitedTime: e.target.checked,
+                                  })
+                                }
+                                className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm font-medium text-gray-700">
+                                Limited time product
                               </span>
                             </label>
                           </div>

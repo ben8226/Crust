@@ -13,6 +13,7 @@ export interface Product {
     dairy?: boolean;
     egg?: boolean;
   };
+  limitedTime?: boolean; // Display "Limited Time" banner on main page
 }
 
 export interface CartItem {
