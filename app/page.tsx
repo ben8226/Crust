@@ -86,9 +86,12 @@ function organizeProducts(products: Product[]) {
     return acc;
   }, {} as Record<string, Product[]>);
 
-  // Sort products within each category by price
+  // Sort products within each category: limited time first, then by price
   Object.keys(grouped).forEach((category) => {
-    grouped[category].sort((a, b) => a.price - b.price);
+    grouped[category].sort((a, b) => {
+      if (a.limitedTime !== b.limitedTime) return a.limitedTime ? -1 : 1;
+      return a.price - b.price;
+    });
   });
 
   // Sort categories: Bread first, then others alphabetically
