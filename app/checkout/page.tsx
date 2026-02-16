@@ -24,6 +24,7 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [phoneError, setPhoneError] = useState<string>("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate min and max dates (2 days from today to one month in future)
@@ -173,6 +174,9 @@ export default function CheckoutPage() {
       ...prev,
       phone: formatted,
     }));
+    // Show error when user has entered something but it's not 10 digits
+    const count = nextDigits.length;
+    setPhoneError(count > 0 && count !== 10 ? "Please enter a valid 10-digit phone number." : "");
     keepPhoneCursorAtEnd();
   }, []);
 
@@ -205,24 +209,30 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate that selected date is not blocked
     if (pickupDate && isDateBlocked(pickupDate)) {
       alert("The selected pickup date is blocked and unavailable. Please choose another date.");
       return;
     }
-    
+
     if (!pickupDate) {
       alert("Please select a pickup date.");
       return;
     }
-    
+
+    // Phone must be exactly 10 digits (US)
+    let phoneDigits = formData.phone.replace(/\D/g, "");
+    if (phoneDigits.startsWith("1") && phoneDigits.length === 11) phoneDigits = phoneDigits.slice(1);
+    else if (phoneDigits.startsWith("1") && phoneDigits.length <= 10) phoneDigits = phoneDigits.slice(1);
+    if (phoneDigits.length !== 10) {
+      setPhoneError("Please enter a valid 10-digit phone number.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Extract digits from phone number for submission
-      const phoneDigits = formData.phone.replace(/\D/g, "");
-      
       // Submit order to API
       const response = await fetch("/api/orders", {
         method: "POST",
@@ -340,8 +350,17 @@ export default function CheckoutPage() {
                   onChange={handleChange}
                   onKeyDown={handlePhoneKeyDown}
                   placeholder="+1 (123) 456-7890"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    phoneError ? "border-red-500" : "border-gray-300"
+                  }`}
+                  aria-invalid={!!phoneError}
+                  aria-describedby={phoneError ? "phone-error" : undefined}
                 />
+                {phoneError && (
+                  <p id="phone-error" className="text-red-600 text-sm mt-1" role="alert">
+                    {phoneError}
+                  </p>
+                )}
               </div>
 
               <div>
