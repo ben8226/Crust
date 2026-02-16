@@ -51,7 +51,7 @@ async function getNextAvailablePickup() {
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 
       // Earliest time based on weekday/weekend
-      const earliestTime = isWeekend ? "12:00 PM" : "10:00 AM";
+      const earliestTime = isWeekend ? "12:00 PM" : "12:00 PM";
 
       return {
         date: checkDate,
@@ -86,12 +86,9 @@ function organizeProducts(products: Product[]) {
     return acc;
   }, {} as Record<string, Product[]>);
 
-  // Sort products within each category: limited time first, then by price
+  // Sort products within each category by price
   Object.keys(grouped).forEach((category) => {
-    grouped[category].sort((a, b) => {
-      if (a.limitedTime !== b.limitedTime) return a.limitedTime ? -1 : 1;
-      return a.price - b.price;
-    });
+    grouped[category].sort((a, b) => a.price - b.price);
   });
 
   // Sort categories: Bread first, then others alphabetically
