@@ -146,22 +146,31 @@ export default function CartPage() {
                         ${item.product.price.toFixed(2)} each
                       </p>
                       {item.cut && (
-                        <p className="text-xs text-gray-500">+${(1 * item.quantity).toFixed(2)} slicing</p>
+                        <p className="text-xs text-gray-500">
+                          +${(1 * item.quantity).toFixed(2)} slicing
+                        </p>
                       )}
                     </div>
                   </div>
 
                   {/* Slice bread option (only for bread category items) */}
                   {item.product.category?.toLowerCase().includes("bread") && (
-                    <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={item.cut || false}
-                        onChange={() => toggleCut(item.product.id, item.selectedBreads)}
-                        className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
-                      />
-                      <span>Pre-sliced (+$1)</span>
-                    </label>
+                    <div className="mt-3">
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={item.cut || false}
+                          onChange={() => toggleCut(item.product.id, item.selectedBreads)}
+                          className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                        />
+                        <span>Pre-sliced (+$1)</span>
+                      </label>
+                      {item.cut && (
+                        <p className="mt-1 text-xs sm:text-sm text-yellow-600">
+                          *bread baked 1 day prior to pickup*
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
                 <button
