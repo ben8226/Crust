@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -9,21 +8,9 @@ export default function AboutPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="bg-white rounded-lg shadow-md p-8 md:p-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-6">About Us</h1>
-
-          <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
-            <div className="w-full md:w-2/5 flex-shrink-0 rounded-lg overflow-hidden relative bg-gray-100 min-h-[320px] md:min-h-[480px]">
-              <Image
-                src="/images/AboutUs/IMG_6970.JPEG"
-                alt="Crust + Culture bakery"
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 40vw"
-                priority
-              />
-            </div>
-
-            <div className="prose prose-lg max-w-none flex-1 min-w-0">
-              <p className="text-lg text-gray-700 mb-6">
+          
+          <div className="prose prose-lg max-w-none">
+            <p className="text-lg text-gray-700 mb-6">
             Hi!
             <br />
             <br />
@@ -39,8 +26,10 @@ export default function AboutPage() {
             I love being able to share my skills of sourdough with the Crystal community. 
             Whether it&apos;s a big get together, or sharing a slice with a friend, I would love to be a part of your dinner table.
             </p>
-            </div>
+
+
           </div>
+          
         </div>
         <Footer />
       </main>

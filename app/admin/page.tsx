@@ -56,7 +56,6 @@ export default function AdminPage() {
       egg: false,
     },
     limitedTime: false,
-    hiddenFromMenu: false,
   });
 
   // Calendar state
@@ -340,7 +339,6 @@ export default function AdminPage() {
           loafType: editingProduct.loafType,
           allergens: editingProduct.allergens,
           limitedTime: editingProduct.limitedTime,
-          hiddenFromMenu: editingProduct.hiddenFromMenu ?? false,
         }),
       });
 
@@ -388,7 +386,6 @@ export default function AdminPage() {
           loafType: newProduct.loafType,
           allergens: newProduct.allergens || { wheat: false, dairy: false, egg: false },
           limitedTime: newProduct.limitedTime ?? false,
-          hiddenFromMenu: newProduct.hiddenFromMenu ?? false,
         }),
       });
 
@@ -1231,22 +1228,6 @@ export default function AdminPage() {
                               Limited time product
                             </span>
                           </label>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={newProduct.hiddenFromMenu ?? false}
-                              onChange={(e) =>
-                                setNewProduct({
-                                  ...newProduct,
-                                  hiddenFromMenu: e.target.checked,
-                                })
-                              }
-                              className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
-                            />
-                            <span className="text-sm font-medium text-gray-700">
-                              Hide from order menu
-                            </span>
-                          </label>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1495,22 +1476,6 @@ export default function AdminPage() {
                               />
                               <span className="text-sm font-medium text-gray-700">
                                 Limited time product
-                              </span>
-                            </label>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={editingProduct.hiddenFromMenu ?? false}
-                                onChange={(e) =>
-                                  setEditingProduct({
-                                    ...editingProduct,
-                                    hiddenFromMenu: e.target.checked,
-                                  })
-                                }
-                                className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
-                              />
-                              <span className="text-sm font-medium text-gray-700">
-                                Hide from order menu
                               </span>
                             </label>
                           </div>
