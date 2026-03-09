@@ -6,6 +6,7 @@ export interface Product {
   image: string;
   category: string;
   inStock: boolean;
+  limitedTime?: boolean;
   ingredients?: string; // Optional ingredients list
   loafType?: "mini" | "half"; // Special product types that require bread selection
   allergens?: {
