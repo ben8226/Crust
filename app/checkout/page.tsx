@@ -17,6 +17,7 @@ export default function CheckoutPage() {
     customerName: "",
     phone: "+1 ",
     email: "",
+    heardAboutUs: "",
   });
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
   const [pickupDate, setPickupDate] = useState<Date | null>(null);
@@ -196,7 +197,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     if (e.target.name === "phone") {
       handlePhoneChange(e.target.value);
     } else {
@@ -244,6 +245,7 @@ export default function CheckoutPage() {
           customerName: formData.customerName,
           phone: phoneDigits,
           email: formData.email,
+          heardAboutUs: formData.heardAboutUs || undefined,
           total: getTotalPrice(),
           paymentMethod: paymentMethod,
           pickupDate: getDateString(pickupDate),
@@ -381,6 +383,25 @@ export default function CheckoutPage() {
                   We&apos;ll send you an order confirmation email
                 </p>
               </div>
+
+              <div>
+                <label htmlFor="heardAboutUs" className="block text-sm font-medium text-gray-700 mb-2">
+                  How did you hear about us? <span className="font-normal text-gray-400">(optional)</span>
+                </label>
+                <select
+                  id="heardAboutUs"
+                  name="heardAboutUs"
+                  value={formData.heardAboutUs}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                >
+                  <option value="">Select an option</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="facebook-marketplace">Facebook Marketplace</option>
+                  <option value="yard-sign">Yard Sign</option>
+                  <option value="friend/family">Friend / Family</option>
+                </select>
+              </div>              
 
               <div className="border-t pt-4 sm:pt-6">
                 <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">

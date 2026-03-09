@@ -107,7 +107,9 @@ function organizeProducts(products: Product[]) {
 }
 
 export default async function Home() {
-  const products = await fetchProducts();
+  const allProducts = await fetchProducts();
+  // Only show products that are not hidden from the main menu
+  const products = allProducts.filter((p) => !p.hiddenFromMenu);
   const { grouped, sortedCategories } = organizeProducts(products);
   const nextPickup = await getNextAvailablePickup();
 

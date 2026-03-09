@@ -55,6 +55,7 @@ export async function POST(request: Request) {
       pickupDate: body.pickupDate,
       pickupTime: body.pickupTime,
       email: body.email, // Optional email for order confirmation
+      heardAboutUs: body.heardAboutUs,
     };
 
     // Save order

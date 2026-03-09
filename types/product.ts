@@ -7,6 +7,7 @@ export interface Product {
   category: string;
   inStock: boolean;
   limitedTime?: boolean;
+  hiddenFromMenu?: boolean;
   ingredients?: string; // Optional ingredients list
   loafType?: "mini" | "half"; // Special product types that require bread selection
   allergens?: {
@@ -35,6 +36,7 @@ export interface Order {
   paymentMethod?: "cash" | "venmo";
   pickupDate?: string;
   pickupTime?: string;
+  heardAboutUs?: string; // Optional: how customer heard about us
   completed?: boolean; // Whether the order has been completed/fulfilled
   completedDate?: string; // Date when order was marked as completed
   cancelled?: boolean; // Whether the order has been cancelled

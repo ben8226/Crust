@@ -80,13 +80,13 @@ export default function CartPage() {
                 key={`${item.product.id}-${item.selectedBreads ? JSON.stringify(item.selectedBreads) : index}`}
                 className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex flex-col sm:flex-row gap-4"
               >
-                <div className="relative w-full sm:w-32 h-48 sm:h-32 bg-gray-200 rounded-lg flex-shrink-0">
+                <div className="relative w-full sm:w-40 h-64 sm:h-44 bg-gray-200 rounded-lg flex-shrink-0">
                   <Image
                     src={item.product.image}
                     alt={item.product.name}
                     fill
-                    className="object-cover rounded-lg"
-                    sizes="128px"
+                    className="object-cover object-[center_70%] rounded-lg"
+                    sizes="(max-width: 640px) 100vw, 160px"
                   />
                 </div>
                 <div className="flex-1 w-full">
@@ -146,22 +146,31 @@ export default function CartPage() {
                         ${item.product.price.toFixed(2)} each
                       </p>
                       {item.cut && (
-                        <p className="text-xs text-gray-500">+${(1 * item.quantity).toFixed(2)} slicing</p>
+                        <p className="text-xs text-gray-500">
+                          +${(1 * item.quantity).toFixed(2)} slicing
+                        </p>
                       )}
                     </div>
                   </div>
 
                   {/* Slice bread option (only for bread category items) */}
                   {item.product.category?.toLowerCase().includes("bread") && (
-                    <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={item.cut || false}
-                        onChange={() => toggleCut(item.product.id, item.selectedBreads)}
-                        className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
-                      />
-                      <span>Pre-sliced (+$1)</span>
-                    </label>
+                    <div className="mt-3">
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={item.cut || false}
+                          onChange={() => toggleCut(item.product.id, item.selectedBreads)}
+                          className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                        />
+                        <span>Pre-sliced (+$1)</span>
+                      </label>
+                      {item.cut && (
+                        <p className="mt-1 text-xs sm:text-sm text-yellow-600">
+                          *bread baked 1 day prior to pickup*
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
                 <button
