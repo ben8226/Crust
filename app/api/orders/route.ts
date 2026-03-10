@@ -3,6 +3,14 @@ import { saveOrder, getOrders } from "@/lib/db";
 import { Order } from "@/types/product";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 
+/** Normalize phone to 10 digits, then format as +1 (XXX) XXX-XXXX for storage. */
+function formatPhoneForStorage(phone: string): string {
+  let digits = (phone || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
+  if (digits.length !== 10) return (phone || "").trim(); // leave unchanged if not 10-digit US
+  return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -43,12 +51,12 @@ export async function POST(request: Request) {
       return id;
     };
 
-    // Create order object
+    // Create order object (store phone in +1 (XXX) XXX-XXXX format)
     const order: Order = {
       id: generateOrderId(),
       items: body.items,
       customerName: body.customerName,
-      phone: body.phone,
+      phone: formatPhoneForStorage(body.phone),
       total: body.total,
       date: new Date().toISOString(),
       paymentMethod: body.paymentMethod || "cash", // Default to cash if not provided

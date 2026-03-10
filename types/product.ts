@@ -14,6 +14,7 @@ export interface Product {
     wheat?: boolean;
     dairy?: boolean;
     egg?: boolean;
+    sesame?: boolean;
   };
 }
 

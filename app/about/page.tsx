@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import Image from "next/image";
 
 export default function AboutPage() {
   return (
@@ -8,8 +9,22 @@ export default function AboutPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="bg-white rounded-lg shadow-md p-8 md:p-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-6">About Us</h1>
-          
-          <div className="prose prose-lg max-w-none">
+
+          <div className="flex flex-col md:flex-row gap-8 md:gap-10 items-start">
+            <div className="w-full md:w-2/5 flex-shrink-0">
+              <div className="relative w-full">
+                <Image
+                  src="/images/AboutUs/IMG_6970.JPEG"
+                  alt="Amanda - Baker and owner of Crust + Culture"
+                  width={400}
+                  height={533}
+                  className="w-full h-auto object-contain object-left"
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                  priority
+                />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 prose prose-lg max-w-none">
             <p className="text-lg text-gray-700 mb-6">
             Hi!
             <br />
@@ -28,6 +43,7 @@ export default function AboutPage() {
             </p>
 
 
+          </div>
           </div>
           
         </div>

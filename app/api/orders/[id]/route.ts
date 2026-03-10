@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { getOrderById, updateOrder, deleteOrder } from "@/lib/db";
 import { Order } from "@/types/product";
 
+function formatPhoneForStorage(phone: string): string {
+  let digits = (phone || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
+  if (digits.length !== 10) return (phone || "").trim();
+  return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -45,6 +52,17 @@ export async function PATCH(
       } else {
         updates.completedDate = undefined;
       }
+    }
+
+    // Allow updating customer info (e.g. from Admin Customers tab)
+    if (typeof body.customerName === "string" && body.customerName.trim()) {
+      updates.customerName = body.customerName.trim();
+    }
+    if (typeof body.phone === "string" && body.phone.trim()) {
+      updates.phone = formatPhoneForStorage(body.phone);
+    }
+    if (typeof body.email === "string") {
+      updates.email = body.email.trim() || undefined;
     }
 
     // Allow updating overall review

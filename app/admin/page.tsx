@@ -12,7 +12,7 @@ import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
 import { formatDateInput, formatPickupDisplay, parseLocalDateString } from "@/lib/date";
 
-type Tab = "orders" | "products" | "calendar" | "gallery" | "analytics" | "updates";
+type Tab = "orders" | "products" | "calendar" | "gallery" | "analytics" | "updates" | "customers";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -54,6 +54,7 @@ export default function AdminPage() {
       wheat: false,
       dairy: false,
       egg: false,
+      sesame: false,
     },
     limitedTime: false,
     hiddenFromMenu: false,
@@ -75,6 +76,11 @@ export default function AdminPage() {
     description: "",
   });
   const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
+
+  // Customers state (derived from orders, keyed by phone)
+  const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<{ name: string; phone: string; email: string } | null>(null);
+  const [updatingCustomer, setUpdatingCustomer] = useState(false);
 
   // Check authentication on mount
   useEffect(() => {
@@ -133,6 +139,8 @@ export default function AdminPage() {
       fetchProducts();
     } else if (activeTab === "updates") {
       fetchUpdates();
+    } else if (activeTab === "customers") {
+      fetchOrders();
     }
   }, [activeTab]);
 
@@ -386,7 +394,7 @@ export default function AdminPage() {
           ingredients: newProduct.ingredients || "",
           inStock: newProduct.inStock ?? true,
           loafType: newProduct.loafType,
-          allergens: newProduct.allergens || { wheat: false, dairy: false, egg: false },
+          allergens: newProduct.allergens || { wheat: false, dairy: false, egg: false, sesame: false },
           limitedTime: newProduct.limitedTime ?? false,
           hiddenFromMenu: newProduct.hiddenFromMenu ?? false,
         }),
@@ -697,6 +705,74 @@ export default function AdminPage() {
     return orders.reduce((sum, order) => sum + order.total, 0);
   }, [orders]);
 
+  // Normalize phone for customer key (digits only; US 11-digit → 10)
+  const normalizePhoneKey = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
+    return digits;
+  };
+
+  // Derive customers from orders (primary key = normalized phone)
+  const customersList = useMemo(() => {
+    const byPhone = new Map<string, Order[]>();
+    orders.forEach((order) => {
+      const key = normalizePhoneKey(order.phone);
+      if (!byPhone.has(key)) byPhone.set(key, []);
+      byPhone.get(key)!.push(order);
+    });
+    return Array.from(byPhone.entries())
+      .map(([phoneKey, orderList]) => {
+        const sorted = [...orderList].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const mostRecent = sorted[0];
+        return {
+          phoneKey,
+          name: mostRecent.customerName,
+          phone: mostRecent.phone,
+          email: mostRecent.email?.trim() || "",
+          orderCount: sorted.length,
+          orders: sorted,
+        };
+      })
+      .sort((a, b) => new Date(b.orders[0].date).getTime() - new Date(a.orders[0].date).getTime());
+  }, [orders]);
+
+  const selectedCustomer = selectedCustomerPhone
+    ? customersList.find((c) => normalizePhoneKey(c.phone) === selectedCustomerPhone)
+    : null;
+
+  const handleUpdateCustomerInfo = async () => {
+    if (!editingCustomer || !selectedCustomerPhone) return;
+    const { name, phone, email } = editingCustomer;
+    if (!name.trim() || !phone.trim()) {
+      alert("Name and phone are required.");
+      return;
+    }
+    const ordersToUpdate = orders.filter((o) => normalizePhoneKey(o.phone) === selectedCustomerPhone);
+    setUpdatingCustomer(true);
+    try {
+      for (const order of ordersToUpdate) {
+        const res = await fetch(`/api/orders/${order.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerName: name.trim(),
+            phone: phone.trim(),
+            email: email.trim() || undefined,
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to update order");
+      }
+      await fetchOrders();
+      setSelectedCustomerPhone(normalizePhoneKey(phone));
+      setEditingCustomer(null);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update customer info. Please try again.");
+    } finally {
+      setUpdatingCustomer(false);
+    }
+  };
+
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
     return (
@@ -801,6 +877,16 @@ export default function AdminPage() {
                     }`}
                   >
                     Updates
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("customers")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "customers"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Customers
                   </button>
                 </div>
               </div>
@@ -981,6 +1067,12 @@ export default function AdminPage() {
                               ${order.total.toFixed(2)}
                             </p>
                           </div>
+                          {order.heardAboutUs && (
+                            <div className="md:col-span-2">
+                              <p className="text-sm font-medium text-gray-600">Heard about us</p>
+                              <p className="text-gray-900">{order.heardAboutUs}</p>
+                            </div>
+                          )}
                         </div>
 
                         <div className="border-t pt-4">
@@ -1304,6 +1396,23 @@ export default function AdminPage() {
                               />
                               <span className="text-sm text-gray-700">Egg</span>
                             </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={newProduct.allergens?.sesame ?? false}
+                                onChange={(e) =>
+                                  setNewProduct({
+                                    ...newProduct,
+                                    allergens: {
+                                      ...newProduct.allergens,
+                                      sesame: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="w-4 h-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm text-gray-700">Sesame</span>
+                            </label>
                           </div>
                         </div>
                       </div>
@@ -1327,7 +1436,7 @@ export default function AdminPage() {
                               ingredients: "",
                               inStock: true,
                               loafType: undefined,
-                              allergens: { wheat: false, dairy: false, egg: false },
+                              allergens: { wheat: false, dairy: false, egg: false, sesame: false },
                               limitedTime: false,
                             });
                           }}
@@ -1569,6 +1678,23 @@ export default function AdminPage() {
                                   className="w-4 h-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
                                 />
                                 <span className="text-sm text-gray-700">Egg</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={editingProduct.allergens?.sesame ?? false}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      allergens: {
+                                        ...editingProduct.allergens,
+                                        sesame: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-4 h-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm text-gray-700">Sesame</span>
                               </label>
                             </div>
                           </div>
@@ -2152,6 +2278,179 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Customers Tab */}
+        {activeTab === "customers" && (
+          <>
+            {ordersLoading ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">Loading customers...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className={selectedCustomer ? "lg:col-span-2" : "lg:col-span-3"}>
+                  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200">
+                      <h2 className="text-xl font-bold text-gray-900">Customers</h2>
+                      <p className="text-sm text-gray-600">Click a row to view orders and update info. Primary key: phone number.</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {customersList.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                                No customers yet. Customers appear after orders are placed.
+                              </td>
+                            </tr>
+                          ) : (
+                            customersList.map((c) => (
+                              <tr
+                                key={c.phoneKey}
+                                onClick={() => setSelectedCustomerPhone(c.phoneKey)}
+                                className={`cursor-pointer hover:bg-gray-50 transition-colors ${
+                                  selectedCustomerPhone === c.phoneKey ? "bg-brown-50" : ""
+                                }`}
+                              >
+                                <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">{c.name}</td>
+                                <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{c.phone}</td>
+                                <td className="px-4 py-3 text-sm text-gray-600 truncate max-w-[200px]">{c.email || "—"}</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">{c.orderCount}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedCustomer && (
+                  <div className="lg:col-span-1 space-y-4">
+                    <div className="bg-white rounded-lg shadow-md p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="text-lg font-bold text-gray-900">Customer detail</h3>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCustomerPhone(null)}
+                          className="text-gray-500 hover:text-gray-700 text-sm"
+                          aria-label="Close"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">{selectedCustomer.name}</p>
+                      <p className="text-sm text-gray-600">{selectedCustomer.phone}</p>
+                      <p className="text-sm text-gray-600 truncate">{selectedCustomer.email || "No email"}</p>
+                      <p className="text-xs text-gray-500 mt-1">{selectedCustomer.orderCount} order(s)</p>
+
+                      {!editingCustomer ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingCustomer({
+                              name: selectedCustomer.name,
+                              phone: selectedCustomer.phone,
+                              email: selectedCustomer.email || "",
+                            })
+                          }
+                          className="mt-3 w-full px-3 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 text-sm font-medium"
+                        >
+                          Update information
+                        </button>
+                      ) : (
+                        <div className="mt-4 space-y-3 border-t pt-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                            <input
+                              type="text"
+                              value={editingCustomer.name}
+                              onChange={(e) => setEditingCustomer((p) => (p ? { ...p, name: e.target.value } : null))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                            <input
+                              type="tel"
+                              value={editingCustomer.phone}
+                              onChange={(e) => setEditingCustomer((p) => (p ? { ...p, phone: e.target.value } : null))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                            <input
+                              type="email"
+                              value={editingCustomer.email}
+                              onChange={(e) => setEditingCustomer((p) => (p ? { ...p, email: e.target.value } : null))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditingCustomer(null)}
+                              className="flex-1 px-2 py-1.5 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleUpdateCustomerInfo}
+                              disabled={updatingCustomer}
+                              className="flex-1 px-2 py-1.5 bg-brown-600 text-white rounded text-sm hover:bg-brown-700 disabled:opacity-50"
+                            >
+                              {updatingCustomer ? "Saving..." : "Save"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-md p-4">
+                      <h3 className="text-lg font-bold text-gray-900 mb-3">Orders</h3>
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                        {selectedCustomer.orders.map((order) => (
+                          <div
+                            key={order.id}
+                            className="border border-gray-200 rounded p-3 text-sm"
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className="font-semibold text-gray-900">#{order.id}</span>
+                              <span className="text-gray-600">
+                                {new Date(order.date).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-gray-700 mt-1">${order.total.toFixed(2)}</p>
+                            {order.completed && (
+                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-800">Completed</span>
+                            )}
+                            {order.cancelled && (
+                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-800">Cancelled</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>

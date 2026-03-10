@@ -80,12 +80,12 @@ export default function CartPage() {
                 key={`${item.product.id}-${item.selectedBreads ? JSON.stringify(item.selectedBreads) : index}`}
                 className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex flex-col sm:flex-row gap-4"
               >
-                <div className="relative w-full sm:w-40 h-64 sm:h-44 bg-gray-200 rounded-lg flex-shrink-0">
+                <div className="relative w-full sm:w-40 aspect-[3/2] sm:aspect-square bg-gray-200 rounded-lg flex-shrink-0">
                   <Image
                     src={item.product.image}
                     alt={item.product.name}
                     fill
-                    className="object-cover object-[center_70%] rounded-lg"
+                    className="object-cover object-bottom sm:object-center rounded-lg"
                     sizes="(max-width: 640px) 100vw, 160px"
                   />
                 </div>

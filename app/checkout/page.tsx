@@ -400,6 +400,7 @@ export default function CheckoutPage() {
                   <option value="facebook-marketplace">Facebook Marketplace</option>
                   <option value="yard-sign">Yard Sign</option>
                   <option value="friend/family">Friend / Family</option>
+                  <option value="crystal-community-page">Crystal Community Page</option>
                 </select>
               </div>              
 

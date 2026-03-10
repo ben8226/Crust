@@ -58,9 +58,14 @@ export default function OrderStatusPage() {
     }
   };
 
-  // Normalize phone number for comparison (remove all non-digits)
+  // Normalize phone number for comparison: digits only, US 11-digit (1 + 10) → 10 digits
   const normalizePhone = (phone: string) => {
-    return phone.replace(/\D/g, "");
+    const digits = phone.replace(/\D/g, "");
+    // So +1 (234) 234-3456 and 2342343456 both match (strip leading 1 if 11 digits)
+    if (digits.length === 11 && digits.startsWith("1")) {
+      return digits.slice(1);
+    }
+    return digits;
   };
 
   const handleSearch = async (e: React.FormEvent) => {
