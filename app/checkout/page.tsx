@@ -26,6 +26,7 @@ export default function CheckoutPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [pickupTimesConfig, setPickupTimesConfig] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }> | null>(null);
+  const [pickupWindowDates, setPickupWindowDates] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }>>({});
   const [phoneError, setPhoneError] = useState<string>("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,10 +70,27 @@ export default function CheckoutPage() {
     fetchPickupTimes();
   }, []);
 
-  // Check if a date is blocked (specific date or full weekday block)
+  // Fetch date-specific pickup window overrides
+  useEffect(() => {
+    const fetchPickupWindowDates = async () => {
+      try {
+        const response = await fetch("/api/pickup-window-dates");
+        if (response.ok) {
+          const data = await response.json();
+          setPickupWindowDates(data);
+        }
+      } catch (error) {
+        console.error("Error fetching pickup window dates:", error);
+      }
+    };
+    fetchPickupWindowDates();
+  }, []);
+
+  // Check if a date is blocked (specific date, full weekday block, or date override)
   const isDateBlocked = (date: Date) => {
     const dateString = formatDateInput(date);
     if (blockedDates.includes(dateString)) return true;
+    if (pickupWindowDates[dateString]?.blocked) return true;
     const dayKey = String(date.getDay());
     if (pickupTimesConfig?.[dayKey]?.blocked) return true;
     return false;
@@ -99,7 +117,7 @@ export default function CheckoutPage() {
     return `${hours12}:${m.toString().padStart(2, "0")} ${period}`;
   };
 
-  // Get available pickup times: 30-min slots from DB config for the selected date's weekday
+  // Get available pickup times: use date-specific override if set, else weekday config
   const getAvailableTimes = (): string[] => {
     if (!pickupDate) return [];
 
@@ -108,12 +126,12 @@ export default function CheckoutPage() {
       "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM",
     ];
 
-    const config = pickupTimesConfig;
-    if (!config) return fallback;
-
-    const dayKey = String(pickupDate.getDay()); // 0 = Sunday, 6 = Saturday
-    const window = config[dayKey];
-    if (!window) return fallback;
+    const dateString = formatDateInput(pickupDate);
+    const dateOverride = pickupWindowDates[dateString];
+    const dayKey = String(pickupDate.getDay());
+    const weekdayWindow = pickupTimesConfig?.[dayKey];
+    const window = dateOverride ?? weekdayWindow;
+    if (!window || window.blocked) return fallback;
 
     const startMins = parseTimeToMinutes(window.startTime);
     const endMins = parseTimeToMinutes(window.endTime);
@@ -135,7 +153,7 @@ export default function CheckoutPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupDate, pickupTimesConfig]);
+  }, [pickupDate, pickupTimesConfig, pickupWindowDates]);
 
   // Convert Date to string for form submission (local, no UTC shift)
   const getDateString = (date: Date | null): string => {

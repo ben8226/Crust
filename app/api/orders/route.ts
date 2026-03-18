@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveOrder, getOrders } from "@/lib/db";
+import { saveOrder, getOrders, validatePickupSlot } from "@/lib/db";
 import { Order } from "@/types/product";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 
@@ -39,6 +39,17 @@ export async function POST(request: Request) {
         { error: "Items array is required and must not be empty" },
         { status: 400 }
       );
+    }
+
+    // Validate pickup date and time if provided (re-check in case config changed during checkout)
+    if (body.pickupDate && body.pickupTime) {
+      const validation = await validatePickupSlot(body.pickupDate, body.pickupTime);
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: validation.error },
+          { status: 400 }
+        );
+      }
     }
 
     // Generate a 5-character alphanumeric order ID

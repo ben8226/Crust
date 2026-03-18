@@ -555,6 +555,108 @@ export async function setPickupTimes(config: PickupTimesConfig): Promise<void> {
   }
 }
 
+// Pickup window overrides for specific dates (YYYY-MM-DD -> window)
+// Overrides the weekday default for that date. blocked=true means no pickup that day.
+export type PickupWindowDates = Record<string, PickupTimeWindow>;
+
+export async function getPickupWindowDates(): Promise<PickupWindowDates> {
+  try {
+    const redis = await getRedis();
+    if (!redis) return {};
+    const stored = await redis.get<PickupWindowDates>("pickupWindowDates");
+    return stored || {};
+  } catch (error) {
+    console.error("Error reading pickup window dates:", error);
+    return {};
+  }
+}
+
+export async function setPickupWindowForDate(
+  date: string,
+  window: PickupTimeWindow
+): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (!redis) throw new Error("Redis not configured");
+    const all = await getPickupWindowDates();
+    all[date] = window;
+    await redis.set("pickupWindowDates", all);
+  } catch (error) {
+    console.error("Error saving pickup window for date:", error);
+    throw error;
+  }
+}
+
+export async function removePickupWindowForDate(date: string): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (!redis) throw new Error("Redis not configured");
+    const all = await getPickupWindowDates();
+    delete all[date];
+    await redis.set("pickupWindowDates", all);
+  } catch (error) {
+    console.error("Error removing pickup window for date:", error);
+    throw error;
+  }
+}
+
+// Parse "12:00 PM" style string to minutes since midnight
+function parseTimeToMinutes(time: string): number | null {
+  const match = (time || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
+/** Validate pickup date and time against current config. Returns error message if invalid. */
+export async function validatePickupSlot(
+  pickupDate: string,
+  pickupTime: string
+): Promise<{ valid: true } | { valid: false; error: string }> {
+  const [blockedDates, pickupTimesConfig, pickupWindowDates] = await Promise.all([
+    getBlockedDates(),
+    getPickupTimes(),
+    getPickupWindowDates(),
+  ]);
+
+  if (blockedDates.includes(pickupDate)) {
+    return { valid: false, error: "This pickup date is no longer available. Please choose another date." };
+  }
+
+  const dateOverride = pickupWindowDates[pickupDate];
+  if (dateOverride?.blocked) {
+    return { valid: false, error: "This pickup date is no longer available. Please choose another date." };
+  }
+
+  const [y, m, d] = pickupDate.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  const dayKey = String(date.getDay());
+  const weekdayWindow = pickupTimesConfig[dayKey];
+  const window = dateOverride ?? weekdayWindow;
+
+  if (!window || window.blocked) {
+    return { valid: false, error: "Pickup is not available on this date. Please choose another date." };
+  }
+
+  const startMins = parseTimeToMinutes(window.startTime);
+  const endMins = parseTimeToMinutes(window.endTime);
+  const slotMins = parseTimeToMinutes(pickupTime);
+
+  if (startMins == null || endMins == null || slotMins == null) {
+    return { valid: false, error: "Invalid pickup time. Please refresh and select a valid time slot." };
+  }
+
+  if (slotMins < startMins || slotMins > endMins) {
+    return { valid: false, error: "This pickup time is no longer available. The window for this date is " + window.startTime + "–" + window.endTime + ". Please choose another time." };
+  }
+
+  return { valid: true };
+}
+
 // Gallery images functions
 export interface GalleryImage {
   id: string;
@@ -595,6 +697,35 @@ export async function saveGalleryImage(image: GalleryImage): Promise<void> {
     console.log(`✓ Gallery image saved successfully. Total images: ${images.length}`);
   } catch (error) {
     console.error("Error saving gallery image to Redis:", error);
+    throw error;
+  }
+}
+
+// Product display order config (admin-controlled)
+export interface ProductDisplayConfig {
+  categoryOrder?: string[];
+  productOrderByCategory?: Record<string, string[]>; // category name -> product IDs in order
+}
+
+export async function getProductDisplayConfig(): Promise<ProductDisplayConfig> {
+  try {
+    const redis = await getRedis();
+    if (!redis) return {};
+    const stored = await redis.get<ProductDisplayConfig>("productDisplayConfig");
+    return stored || {};
+  } catch (error) {
+    console.error("Error reading product display config:", error);
+    return {};
+  }
+}
+
+export async function setProductDisplayConfig(config: ProductDisplayConfig): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (!redis) throw new Error("Redis not configured");
+    await redis.set("productDisplayConfig", config);
+  } catch (error) {
+    console.error("Error saving product display config:", error);
     throw error;
   }
 }
