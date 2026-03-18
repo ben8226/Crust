@@ -2,7 +2,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import { getProducts } from "@/lib/db";
-import { getBlockedDates } from "@/lib/db";
+import { getBlockedDates, getPickupTimes } from "@/lib/db";
 import { formatDateInput } from "@/lib/date";
 import { products as staticProducts } from "@/data/products";
 import { Product } from "@/types/product";
@@ -28,6 +28,7 @@ async function fetchProducts() {
 async function getNextAvailablePickup() {
   try {
     const blockedDates = await getBlockedDates();
+    const pickupTimesConfig = await getPickupTimes();
 
     // Start from 2 days from today (minimum advance notice)
     const startDate = new Date();
@@ -47,11 +48,10 @@ async function getNextAvailablePickup() {
         continue;
       }
 
-      const dayOfWeek = checkDate.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
-
-      // Earliest time based on weekday/weekend
-      const earliestTime = isWeekend ? "12:00 PM" : "12:00 PM";
+      const dayOfWeek = checkDate.getDay(); // 0-6
+      const windowForDay = pickupTimesConfig[String(dayOfWeek)];
+      if (windowForDay?.blocked) continue; // no pickup on this weekday
+      const earliestTime = windowForDay?.startTime || "12:00 PM";
 
       return {
         date: checkDate,

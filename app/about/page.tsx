@@ -35,7 +35,6 @@ export default function AboutPage() {
             I am not a huge bakery that produces 50+ sourdough loaves in one day. 
             That is what sets me apart, I put extra care and thought into every single loaf since I&apos;m able to focus on small quantities at once.
             I have been adding and removing inclusion loaves from my menu to make sure the best and most perfected loaves are on the menu.
-            If you have any inclusion loaf ideas make sure to send me a DM on Instagram to see if I can make it happen.
             <br />
             <br />
             I love being able to share my skills of sourdough with the Crystal community. 

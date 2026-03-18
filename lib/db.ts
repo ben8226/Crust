@@ -1,6 +1,16 @@
 import { Product, Order } from "@/types/product";
 import { UpdateEntry } from "@/types/update";
 
+// Pickup time window configuration for a single day
+export interface PickupTimeWindow {
+  startTime: string; // e.g. "12:00 PM"
+  endTime: string;   // e.g. "6:00 PM"
+  blocked?: boolean; // if true, no pickup available this weekday at all
+}
+
+// Per-weekday pickup time configuration keyed by 0-6 (Sun-Sat) as strings
+export type PickupTimesConfig = Record<string, PickupTimeWindow>;
+
 // Lazy load Upstash Redis to avoid build-time errors
 async function getRedis() {
   try {
@@ -472,6 +482,75 @@ export async function toggleBlockedDate(date: string): Promise<string[]> {
     return blockedDates;
   } catch (error) {
     console.error("Error toggling blocked date:", error);
+    throw error;
+  }
+}
+
+// Pickup time configuration functions
+export async function getPickupTimes(): Promise<PickupTimesConfig> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.warn("Redis not available, returning default pickup times");
+      // Default: every day 12:00 PM–6:00 PM
+      return {
+        "0": { startTime: "12:00 PM", endTime: "6:00 PM" }, // Sunday
+        "1": { startTime: "12:00 PM", endTime: "6:00 PM" }, // Monday
+        "2": { startTime: "12:00 PM", endTime: "6:00 PM" }, // Tuesday
+        "3": { startTime: "12:00 PM", endTime: "6:00 PM" }, // Wednesday
+        "4": { startTime: "12:00 PM", endTime: "6:00 PM" }, // Thursday
+        "5": { startTime: "12:00 PM", endTime: "6:00 PM" }, // Friday
+        "6": { startTime: "12:00 PM", endTime: "6:00 PM" }, // Saturday
+      };
+    }
+
+    const stored = await redis.get<PickupTimesConfig>("pickupTimes");
+    if (stored && Object.keys(stored).length > 0) {
+      return stored;
+    }
+
+    // Initialize with defaults if nothing stored yet
+    const defaults: PickupTimesConfig = {
+      "0": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "1": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "2": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "3": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "4": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "5": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "6": { startTime: "12:00 PM", endTime: "6:00 PM" },
+    };
+
+    await redis.set("pickupTimes", defaults);
+    console.log("✓ Initialized default pickupTimes in Redis");
+    return defaults;
+  } catch (error) {
+    console.error("Error reading pickup times from Redis:", error);
+    // Fallback to defaults if anything fails
+    return {
+      "0": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "1": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "2": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "3": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "4": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "5": { startTime: "12:00 PM", endTime: "6:00 PM" },
+      "6": { startTime: "12:00 PM", endTime: "6:00 PM" },
+    };
+  }
+}
+
+export async function setPickupTimes(config: PickupTimesConfig): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.error("✗ Upstash Redis not configured. Pickup times not persisted.");
+      throw new Error("Redis not configured");
+    }
+
+    console.log("Saving pickupTimes configuration to Redis");
+    await redis.set("pickupTimes", config);
+    console.log("✓ Pickup times saved successfully");
+  } catch (error) {
+    console.error("Error saving pickup times to Redis:", error);
     throw error;
   }
 }

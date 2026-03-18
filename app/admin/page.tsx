@@ -12,6 +12,20 @@ import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
 import { formatDateInput, formatPickupDisplay, parseLocalDateString } from "@/lib/date";
 
+// 30-min slots from 8:00 AM to 10:00 PM for pickup time dropdowns
+const PICKUP_TIME_OPTIONS: string[] = (() => {
+  const options: string[] = [];
+  for (let h = 8; h <= 22; h++) {
+    for (const m of [0, 30]) {
+      if (h === 22 && m === 30) break;
+      const period = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      options.push(`${h12}:${m.toString().padStart(2, "0")} ${period}`);
+    }
+  }
+  return options;
+})();
+
 type Tab = "orders" | "products" | "calendar" | "gallery" | "analytics" | "updates" | "customers";
 
 export default function AdminPage() {
@@ -65,6 +79,8 @@ export default function AdminPage() {
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [togglingDates, setTogglingDates] = useState<Set<string>>(new Set());
+  const [pickupTimesConfig, setPickupTimesConfig] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }> | null>(null);
+  const [pickupTimesSaving, setPickupTimesSaving] = useState(false);
 
   // Gallery state
   const [galleryImages, setGalleryImages] = useState<Array<{id: string; url: string; title?: string; description?: string; date?: string}>>([]);
@@ -132,6 +148,7 @@ export default function AdminPage() {
     } else if (activeTab === "calendar") {
       fetchOrders();
       fetchBlockedDates();
+      fetchPickupTimes();
     } else if (activeTab === "gallery") {
       fetchGalleryImages();
     } else if (activeTab === "analytics") {
@@ -477,6 +494,63 @@ export default function AdminPage() {
       console.error("Error fetching blocked dates:", error);
     } finally {
       setCalendarLoading(false);
+    }
+  };
+
+  const fetchPickupTimes = async () => {
+    try {
+      const response = await fetch("/api/pickup-times");
+      if (response.ok) {
+        const data = await response.json();
+        setPickupTimesConfig(data);
+      }
+    } catch (error) {
+      console.error("Error fetching pickup times:", error);
+    }
+  };
+
+  const handlePickupTimeChange = (
+    dayKey: string,
+    field: "startTime" | "endTime",
+    value: string
+  ) => {
+    setPickupTimesConfig((prev) => {
+      const next = { ...(prev || {}) };
+      const existing = next[dayKey] || { startTime: "12:00 PM", endTime: "6:00 PM" };
+      next[dayKey] = { ...existing, [field]: value };
+      return next;
+    });
+  };
+
+  const handlePickupBlockedToggle = (dayKey: string) => {
+    setPickupTimesConfig((prev) => {
+      const next = { ...(prev || {}) };
+      const existing = next[dayKey] || { startTime: "12:00 PM", endTime: "6:00 PM" };
+      next[dayKey] = { ...existing, blocked: !existing.blocked };
+      return next;
+    });
+  };
+
+  const handleSavePickupTimes = async () => {
+    if (!pickupTimesConfig) return;
+    try {
+      setPickupTimesSaving(true);
+      const response = await fetch("/api/pickup-times", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickupTimes: pickupTimesConfig }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        alert(error?.error || "Failed to save pickup times");
+        return;
+      }
+      await fetchPickupTimes();
+    } catch (error) {
+      console.error("Error saving pickup times:", error);
+      alert("Error saving pickup times. Please try again.");
+    } finally {
+      setPickupTimesSaving(false);
     }
   };
 
@@ -1820,7 +1894,9 @@ export default function AdminPage() {
                     }
 
                     const dateStr = formatDateString(date);
-                    const isBlocked = blockedDates.includes(dateStr);
+                    const isBlockedByDate = blockedDates.includes(dateStr);
+                    const isBlockedByWeekday = !!pickupTimesConfig?.[String(date.getDay())]?.blocked;
+                    const isBlocked = isBlockedByDate || isBlockedByWeekday;
                     const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
                     const isToday =
                       formatDateString(date) === formatDateString(new Date());
@@ -1918,6 +1994,110 @@ export default function AdminPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-orange-100 rounded"></div>
                     <span>Pending Orders</span>
+                  </div>
+                </div>
+
+                {/* Pickup time configuration */}
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Pickup Time Windows
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Configure the default pickup start and end times for each day of the week.
+                    These times are used to generate the 30-minute time slots on the checkout page
+                    and for the \"next available pickup\" banner.
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="px-3 py-2 text-left font-medium text-gray-700">
+                            Day
+                          </th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-700">
+                            Start Time
+                          </th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-700">
+                            End Time
+                          </th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-700">
+                            Block day
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(
+                          (label, idx) => {
+                            const key = String(idx);
+                            const window = pickupTimesConfig?.[key] || {
+                              startTime: "12:00 PM",
+                              endTime: "6:00 PM",
+                            };
+                            const isBlocked = !!window.blocked;
+                            return (
+                              <tr key={key} className={`border-b border-gray-100 ${isBlocked ? "bg-red-50" : ""}`}>
+                                <td className="px-3 py-2 text-gray-800">{label}</td>
+                                <td className="px-3 py-2">
+                                  <select
+                                    value={PICKUP_TIME_OPTIONS.includes(window.startTime) ? window.startTime : "12:00 PM"}
+                                    onChange={(e) =>
+                                      handlePickupTimeChange(key, "startTime", e.target.value)
+                                    }
+                                    disabled={isBlocked}
+                                    className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-brown-500 focus:border-brown-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                  >
+                                    {PICKUP_TIME_OPTIONS.map((t) => (
+                                      <option key={t} value={t}>{t}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <select
+                                    value={PICKUP_TIME_OPTIONS.includes(window.endTime) ? window.endTime : "6:00 PM"}
+                                    onChange={(e) =>
+                                      handlePickupTimeChange(key, "endTime", e.target.value)
+                                    }
+                                    disabled={isBlocked}
+                                    className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-brown-500 focus:border-brown-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                  >
+                                    {PICKUP_TIME_OPTIONS.map((t) => (
+                                      <option key={t} value={t}>{t}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePickupBlockedToggle(key)}
+                                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                      isBlocked
+                                        ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                        : "bg-red-100 text-red-700 hover:bg-red-200"
+                                    }`}
+                                    title={isBlocked ? "Unblock this weekday (pickup available again)" : "Full block this weekday (no pickup)"}
+                                  >
+                                    {isBlocked ? "Unblock day" : "Block day"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSavePickupTimes}
+                      disabled={!pickupTimesConfig || pickupTimesSaving}
+                      className="px-4 py-2 bg-brown-600 text-white rounded-lg text-sm font-medium hover:bg-brown-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {pickupTimesSaving ? "Saving..." : "Save Pickup Times"}
+                    </button>
+                    <span className="text-xs text-gray-500">
+                      Options are every 30 minutes from 8:00 AM to 10:00 PM.
+                    </span>
                   </div>
                 </div>
               </div>
