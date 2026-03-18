@@ -2005,7 +2005,7 @@ export default function AdminPage() {
                   <p className="text-sm text-gray-600 mb-3">
                     Configure the default pickup start and end times for each day of the week.
                     These times are used to generate the 30-minute time slots on the checkout page
-                    and for the \"next available pickup\" banner.
+                    and for the next available pickup banner.
                   </p>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
