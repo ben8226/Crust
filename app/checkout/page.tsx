@@ -25,6 +25,8 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [pickupTimesConfig, setPickupTimesConfig] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }> | null>(null);
+  const [pickupWindowDates, setPickupWindowDates] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }>>({});
   const [phoneError, setPhoneError] = useState<string>("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,61 +54,97 @@ export default function CheckoutPage() {
     fetchBlockedDates();
   }, []);
 
-  // Check if a date is blocked (for DatePicker filterDate)
+  // Fetch pickup time configuration from DB
+  useEffect(() => {
+    const fetchPickupTimes = async () => {
+      try {
+        const response = await fetch("/api/pickup-times");
+        if (response.ok) {
+          const data = await response.json();
+          setPickupTimesConfig(data);
+        }
+      } catch (error) {
+        console.error("Error fetching pickup times:", error);
+      }
+    };
+    fetchPickupTimes();
+  }, []);
+
+  // Fetch date-specific pickup window overrides
+  useEffect(() => {
+    const fetchPickupWindowDates = async () => {
+      try {
+        const response = await fetch("/api/pickup-window-dates");
+        if (response.ok) {
+          const data = await response.json();
+          setPickupWindowDates(data);
+        }
+      } catch (error) {
+        console.error("Error fetching pickup window dates:", error);
+      }
+    };
+    fetchPickupWindowDates();
+  }, []);
+
+  // Check if a date is blocked (specific date, full weekday block, or date override)
   const isDateBlocked = (date: Date) => {
     const dateString = formatDateInput(date);
-    return blockedDates.includes(dateString);
+    if (blockedDates.includes(dateString)) return true;
+    if (pickupWindowDates[dateString]?.blocked) return true;
+    const dayKey = String(date.getDay());
+    if (pickupTimesConfig?.[dayKey]?.blocked) return true;
+    return false;
   };
 
-  // Check if a date is a weekend (Saturday = 6, Sunday = 0)
-  const isWeekend = (date: Date | null): boolean => {
-    if (!date) return false;
-    const day = date.getDay();
-    return day === 0 || day === 6; // Sunday or Saturday
+  // Parse "12:00 PM" / "6:00 PM" style string to minutes since midnight
+  const parseTimeToMinutes = (time: string): number | null => {
+    const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const period = match[3].toUpperCase();
+    if (period === "PM" && hours !== 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+    return hours * 60 + minutes;
   };
 
-  // Get available pickup times based on whether it's a weekend
+  // Format minutes since midnight to "12:00 PM" style
+  const formatMinutesToTime = (mins: number): string => {
+    const hours24 = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    const period = hours24 >= 12 ? "PM" : "AM";
+    const hours12 = hours24 % 12 || 12;
+    return `${hours12}:${m.toString().padStart(2, "0")} ${period}`;
+  };
+
+  // Get available pickup times: use date-specific override if set, else weekday config
   const getAvailableTimes = (): string[] => {
-    const isWeekendDate = isWeekend(pickupDate);
-    
-    if (isWeekendDate) {
-      // Weekend times: start at 11:00 AM
-      return [
-        "12:00 PM",
-        "12:30 PM",
-        "1:00 PM",
-        "1:30 PM",
-        "2:00 PM",
-        "2:30 PM",
-        "3:00 PM",
-        "3:30 PM",
-        "4:00 PM",
-        "4:30 PM",
-        "5:00 PM",
-        "5:30 PM",
-        "6:00 PM",
-      ];
-    } else {
-      // Weekday times: start at 10:00 AM
-      return [
-        "12:00 PM",
-        "12:30 PM",
-        "1:00 PM",
-        "1:30 PM",
-        "2:00 PM",
-        "2:30 PM",
-        "3:00 PM",
-        "3:30 PM",
-        "4:00 PM",
-        "4:30 PM",
-        "5:00 PM",
-        "5:30 PM",
-        "6:00 PM",
-      ];
+    if (!pickupDate) return [];
+
+    const fallback = [
+      "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
+      "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM",
+    ];
+
+    const dateString = formatDateInput(pickupDate);
+    const dateOverride = pickupWindowDates[dateString];
+    const dayKey = String(pickupDate.getDay());
+    const weekdayWindow = pickupTimesConfig?.[dayKey];
+    const window = dateOverride ?? weekdayWindow;
+    if (!window || window.blocked) return fallback;
+
+    const startMins = parseTimeToMinutes(window.startTime);
+    const endMins = parseTimeToMinutes(window.endTime);
+    if (startMins == null || endMins == null || startMins > endMins) return fallback;
+
+    const slots: string[] = [];
+    for (let m = startMins; m <= endMins; m += 30) {
+      slots.push(formatMinutesToTime(m));
     }
+    return slots;
   };
 
-  // Reset pickup time if it's no longer valid when date changes
+  // Reset pickup time if it's no longer valid when date or config changes
   useEffect(() => {
     if (pickupDate && pickupTime) {
       const availableTimes = getAvailableTimes();
@@ -115,7 +153,7 @@ export default function CheckoutPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupDate]);
+  }, [pickupDate, pickupTimesConfig, pickupWindowDates]);
 
   // Convert Date to string for form submission (local, no UTC shift)
   const getDateString = (date: Date | null): string => {
@@ -358,6 +396,9 @@ export default function CheckoutPage() {
                   aria-invalid={!!phoneError}
                   aria-describedby={phoneError ? "phone-error" : undefined}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  We&apos;ll send you a reminder text the day of your pickup
+                </p>
                 {phoneError && (
                   <p id="phone-error" className="text-red-600 text-sm mt-1" role="alert">
                     {phoneError}
@@ -397,10 +438,11 @@ export default function CheckoutPage() {
                 >
                   <option value="">Select an option</option>
                   <option value="instagram">Instagram</option>
-                  <option value="facebook-marketplace">Facebook Marketplace</option>
+                  <option value="facebook-marketplace">Facebook: Marketplace</option>
+                  <option value="crystal-community-page">Facebook: Crystal Community Page</option>
                   <option value="yard-sign">Yard Sign</option>
                   <option value="friend/family">Friend / Family</option>
-                  <option value="crystal-community-page">Crystal Community Page</option>
+                  
                 </select>
               </div>              
 
@@ -450,13 +492,16 @@ export default function CheckoutPage() {
                         </option>
                       ))}
                     </select>
-                    {pickupDate && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {isWeekend(pickupDate) 
-                          ? "Weekend hours: 12:00 PM - 6:00 PM" 
-                          : "Weekday hours: 12:00 AM - 6:00 PM"}
-                      </p>
-                    )}
+                    {pickupDate && (() => {
+                      const dayKey = String(pickupDate.getDay());
+                      const window = pickupTimesConfig?.[dayKey];
+                      const range = window ? `${window.startTime} – ${window.endTime}` : "12:00 PM – 6:00 PM";
+                      return (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Pickup window: {range}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
