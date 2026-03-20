@@ -396,6 +396,9 @@ export default function CheckoutPage() {
                   aria-invalid={!!phoneError}
                   aria-describedby={phoneError ? "phone-error" : undefined}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  We&apos;ll send you a reminder text the day of your pickup
+                </p>
                 {phoneError && (
                   <p id="phone-error" className="text-red-600 text-sm mt-1" role="alert">
                     {phoneError}

@@ -19,7 +19,7 @@ export default function MyAccountPage() {
   const [cancellingOrders, setCancellingOrders] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("loyalty");
+  const [activeTab, setActiveTab] = useState<Tab>("orders");
   const [reviewEdits, setReviewEdits] = useState<Record<string, Record<number, string>>>({});
   const [ratingEdits, setRatingEdits] = useState<Record<string, Record<number, number>>>({});
   const [orderReviewEdits, setOrderReviewEdits] = useState<Record<string, string>>({});

@@ -37,6 +37,7 @@ export interface Order {
   paymentMethod?: "cash" | "venmo";
   pickupDate?: string;
   pickupTime?: string;
+  reminderSentAt?: string; // ISO timestamp when pickup reminder SMS was sent
   heardAboutUs?: string; // Optional: how customer heard about us
   completed?: boolean; // Whether the order has been completed/fulfilled
   completedDate?: string; // Date when order was marked as completed
