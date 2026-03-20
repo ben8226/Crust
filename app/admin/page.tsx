@@ -12,7 +12,160 @@ import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
 import { formatDateInput, formatPickupDisplay, parseLocalDateString } from "@/lib/date";
 
+// 30-min slots from 8:00 AM to 10:00 PM for pickup time dropdowns
+const PICKUP_TIME_OPTIONS: string[] = (() => {
+  const options: string[] = [];
+  for (let h = 8; h <= 22; h++) {
+    for (const m of [0, 30]) {
+      if (h === 22 && m === 30) break;
+      const period = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      options.push(`${h12}:${m.toString().padStart(2, "0")} ${period}`);
+    }
+  }
+  return options;
+})();
+
 type Tab = "orders" | "products" | "calendar" | "gallery" | "analytics" | "updates" | "customers";
+
+function PickupWindowDateModal({
+  date,
+  window: initialWindow,
+  defaultWindow,
+  hasOverride,
+  onClose,
+  onSave,
+  onRemoveOverride,
+  saving,
+  timeOptions,
+}: {
+  date: string;
+  window: { startTime: string; endTime: string; blocked?: boolean };
+  defaultWindow: { startTime: string; endTime: string; blocked?: boolean };
+  hasOverride: boolean;
+  onClose: () => void;
+  onSave: (date: string, w: { startTime: string; endTime: string; blocked?: boolean }) => void;
+  onRemoveOverride: (date: string) => void;
+  saving: boolean;
+  timeOptions: string[];
+}) {
+  const [startTime, setStartTime] = useState(initialWindow.startTime);
+  const [endTime, setEndTime] = useState(initialWindow.endTime);
+  const [blocked, setBlocked] = useState(!!initialWindow.blocked);
+
+  const displayDate = parseLocalDateString(date)?.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }) ?? date;
+
+  const handleSave = () => {
+    onSave(date, { startTime, endTime, blocked });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Pickup window for {displayDate}</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Override the default weekday pickup times for this specific date.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Start time</label>
+            <select
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              disabled={blocked}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-500 disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              {timeOptions.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">End time</label>
+            <select
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              disabled={blocked}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-500 disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              {timeOptions.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={blocked}
+              onChange={(e) => setBlocked(e.target.checked)}
+              className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+            />
+            <span className="text-sm font-medium text-gray-700">Block pickup on this date</span>
+          </label>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          {hasOverride && (
+            <button
+              onClick={() => onRemoveOverride(date)}
+              disabled={saving}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+            >
+              Use default ({defaultWindow.startTime}–{defaultWindow.endTime})
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function deriveDisplayConfigFromProducts(products: Product[]) {
+  const categoryPriority: Record<string, number> = {
+    "Sourdough Bread": 0,
+    "Bread": 0,
+    "Breads": 0,
+  };
+  const grouped = products.reduce((acc, p) => {
+    const cat = p.category || "Other";
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(p);
+    return acc;
+  }, {} as Record<string, Product[]>);
+  const categoryOrder = Object.keys(grouped).sort((a, b) => {
+    const pa = categoryPriority[a] ?? 999;
+    const pb = categoryPriority[b] ?? 999;
+    if (pa !== pb) return pa - pb;
+    return a.localeCompare(b);
+  });
+  const productOrderByCategory: Record<string, string[]> = {};
+  categoryOrder.forEach((cat) => {
+    productOrderByCategory[cat] = [...grouped[cat]]
+      .sort((a, b) => a.price - b.price)
+      .map((p) => p.id);
+  });
+  return { categoryOrder, productOrderByCategory };
+}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -41,6 +194,12 @@ export default function AdminPage() {
   const [updatingProducts, setUpdatingProducts] = useState<Set<string>>(new Set());
   const [deletingProducts, setDeletingProducts] = useState<Set<string>>(new Set());
   const [showNewProductForm, setShowNewProductForm] = useState(false);
+  const [showOrderingPanel, setShowOrderingPanel] = useState(false);
+  const [displayConfig, setDisplayConfig] = useState<{
+    categoryOrder?: string[];
+    productOrderByCategory?: Record<string, string[]>;
+  } | null>(null);
+  const [displayConfigSaving, setDisplayConfigSaving] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: "",
     description: "",
@@ -65,6 +224,11 @@ export default function AdminPage() {
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [togglingDates, setTogglingDates] = useState<Set<string>>(new Set());
+  const [pickupTimesConfig, setPickupTimesConfig] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }> | null>(null);
+  const [pickupTimesSaving, setPickupTimesSaving] = useState(false);
+  const [pickupWindowDates, setPickupWindowDates] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }>>({});
+  const [selectedDateForWindow, setSelectedDateForWindow] = useState<string | null>(null);
+  const [pickupWindowSaving, setPickupWindowSaving] = useState(false);
 
   // Gallery state
   const [galleryImages, setGalleryImages] = useState<Array<{id: string; url: string; title?: string; description?: string; date?: string}>>([]);
@@ -129,9 +293,12 @@ export default function AdminPage() {
       fetchOrders();
     } else if (activeTab === "products") {
       fetchProducts();
+      fetchDisplayConfig();
     } else if (activeTab === "calendar") {
       fetchOrders();
       fetchBlockedDates();
+      fetchPickupTimes();
+      fetchPickupWindowDates();
     } else if (activeTab === "gallery") {
       fetchGalleryImages();
     } else if (activeTab === "analytics") {
@@ -323,6 +490,80 @@ export default function AdminPage() {
     }
   };
 
+  const fetchDisplayConfig = async () => {
+    try {
+      const response = await fetch("/api/display-config");
+      if (response.ok) {
+        const data = await response.json();
+        setDisplayConfig(data);
+      }
+    } catch (error) {
+      console.error("Error fetching display config:", error);
+    }
+  };
+
+  const effectiveDisplayConfig = useMemo(() => {
+    const derived = deriveDisplayConfigFromProducts(products);
+    if (!displayConfig?.categoryOrder?.length) return derived;
+    const orderSet = new Set(displayConfig.categoryOrder);
+    const ordered = displayConfig.categoryOrder.filter((c) => derived.categoryOrder.includes(c));
+    const rest = derived.categoryOrder.filter((c) => !orderSet.has(c));
+    const categoryOrder = [...ordered, ...rest];
+    const productOrderByCategory: Record<string, string[]> = {};
+    categoryOrder.forEach((cat) => {
+      const savedIds = displayConfig.productOrderByCategory?.[cat] || [];
+      const derivedIds = derived.productOrderByCategory?.[cat] || [];
+      const idSet = new Set(savedIds);
+      const orderedIds = savedIds.filter((id) => products.some((p) => p.id === id));
+      const restIds = derivedIds.filter((id) => !idSet.has(id));
+      productOrderByCategory[cat] = [...orderedIds, ...restIds];
+    });
+    return { categoryOrder, productOrderByCategory };
+  }, [displayConfig, products]);
+
+  const handleSaveDisplayConfig = async () => {
+    try {
+      setDisplayConfigSaving(true);
+      const response = await fetch("/api/display-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(effectiveDisplayConfig),
+      });
+      if (!response.ok) throw new Error("Failed to save");
+      await fetchDisplayConfig();
+    } catch (error) {
+      console.error("Error saving display config:", error);
+      alert("Failed to save product order. Please try again.");
+    } finally {
+      setDisplayConfigSaving(false);
+    }
+  };
+
+  const moveCategory = (index: number, direction: "up" | "down") => {
+    const cats = [...(effectiveDisplayConfig.categoryOrder || [])];
+    const swap = direction === "up" ? index - 1 : index + 1;
+    if (swap < 0 || swap >= cats.length) return;
+    [cats[index], cats[swap]] = [cats[swap], cats[index]];
+    setDisplayConfig({
+      ...effectiveDisplayConfig,
+      categoryOrder: cats,
+    });
+  };
+
+  const moveProduct = (category: string, index: number, direction: "up" | "down") => {
+    const ids = [...(effectiveDisplayConfig.productOrderByCategory?.[category] || [])];
+    const swap = direction === "up" ? index - 1 : index + 1;
+    if (swap < 0 || swap >= ids.length) return;
+    [ids[index], ids[swap]] = [ids[swap], ids[index]];
+    setDisplayConfig({
+      ...effectiveDisplayConfig,
+      productOrderByCategory: {
+        ...effectiveDisplayConfig.productOrderByCategory,
+        [category]: ids,
+      },
+    });
+  };
+
   const handleProductEdit = (product: Product) => {
     setEditingProduct({ ...product });
     setShowNewProductForm(false); // Close new product form if open
@@ -477,6 +718,137 @@ export default function AdminPage() {
       console.error("Error fetching blocked dates:", error);
     } finally {
       setCalendarLoading(false);
+    }
+  };
+
+  const fetchPickupTimes = async () => {
+    try {
+      const response = await fetch("/api/pickup-times");
+      if (response.ok) {
+        const data = await response.json();
+        setPickupTimesConfig(data);
+      }
+    } catch (error) {
+      console.error("Error fetching pickup times:", error);
+    }
+  };
+
+  const fetchPickupWindowDates = async () => {
+    try {
+      const response = await fetch("/api/pickup-window-dates");
+      if (response.ok) {
+        const data = await response.json();
+        setPickupWindowDates(data);
+      }
+    } catch (error) {
+      console.error("Error fetching pickup window dates:", error);
+    }
+  };
+
+  const handlePickupTimeChange = (
+    dayKey: string,
+    field: "startTime" | "endTime",
+    value: string
+  ) => {
+    setPickupTimesConfig((prev) => {
+      const next = { ...(prev || {}) };
+      const existing = next[dayKey] || { startTime: "12:00 PM", endTime: "6:00 PM" };
+      next[dayKey] = { ...existing, [field]: value };
+      return next;
+    });
+  };
+
+  const handlePickupBlockedToggle = (dayKey: string) => {
+    setPickupTimesConfig((prev) => {
+      const next = { ...(prev || {}) };
+      const existing = next[dayKey] || { startTime: "12:00 PM", endTime: "6:00 PM" };
+      next[dayKey] = { ...existing, blocked: !existing.blocked };
+      return next;
+    });
+  };
+
+  const handleSavePickupTimes = async () => {
+    if (!pickupTimesConfig) return;
+    try {
+      setPickupTimesSaving(true);
+      const response = await fetch("/api/pickup-times", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickupTimes: pickupTimesConfig }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        alert(error?.error || "Failed to save pickup times");
+        return;
+      }
+      await fetchPickupTimes();
+    } catch (error) {
+      console.error("Error saving pickup times:", error);
+      alert("Error saving pickup times. Please try again.");
+    } finally {
+      setPickupTimesSaving(false);
+    }
+  };
+
+  // Get effective window for a date: date-specific override or weekday default
+  const getEffectiveWindowForDate = (date: Date) => {
+    const dateStr = formatDateInput(date);
+    const override = pickupWindowDates[dateStr];
+    if (override) return override;
+    const dayKey = String(date.getDay());
+    return pickupTimesConfig?.[dayKey] || { startTime: "12:00 PM", endTime: "6:00 PM" };
+  };
+
+  // Get weekday-only window (no date override) for "Use default" display
+  const getWeekdayWindowForDate = (date: Date) => {
+    const dayKey = String(date.getDay());
+    return pickupTimesConfig?.[dayKey] || { startTime: "12:00 PM", endTime: "6:00 PM" };
+  };
+
+  const handleSavePickupWindowForDate = async (
+    date: string,
+    window: { startTime: string; endTime: string; blocked?: boolean }
+  ) => {
+    try {
+      setPickupWindowSaving(true);
+      const response = await fetch("/api/pickup-window-dates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, window }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        alert(err?.error || "Failed to save");
+        return;
+      }
+      await fetchPickupWindowDates();
+      setSelectedDateForWindow(null);
+    } catch (error) {
+      console.error("Error saving pickup window:", error);
+      alert("Failed to save. Please try again.");
+    } finally {
+      setPickupWindowSaving(false);
+    }
+  };
+
+  const handleRemovePickupWindowForDate = async (date: string) => {
+    try {
+      setPickupWindowSaving(true);
+      const response = await fetch(`/api/pickup-window-dates?date=${encodeURIComponent(date)}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        alert(err?.error || "Failed to remove");
+        return;
+      }
+      await fetchPickupWindowDates();
+      setSelectedDateForWindow(null);
+    } catch (error) {
+      console.error("Error removing pickup window:", error);
+      alert("Failed to remove. Please try again.");
+    } finally {
+      setPickupWindowSaving(false);
     }
   };
 
@@ -1152,18 +1524,106 @@ export default function AdminPage() {
             ) : (
               <div className="space-y-4">
                 {/* Add New Product Button */}
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
                   <h2 className="text-2xl font-bold text-gray-900">Products</h2>
-                  <button
-                    onClick={() => {
-                      setShowNewProductForm(!showNewProductForm);
-                      setEditingProduct(null); // Close any open edit forms
-                    }}
-                    className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors"
-                  >
-                    {showNewProductForm ? "Cancel" : "+ Add New Product"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowOrderingPanel(!showOrderingPanel)}
+                      className={`px-4 py-2 rounded-lg transition-colors ${
+                        showOrderingPanel
+                          ? "bg-brown-700 text-white"
+                          : "bg-brown-100 text-brown-700 hover:bg-brown-200"
+                      }`}
+                    >
+                      Product ordering
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowNewProductForm(!showNewProductForm);
+                        setEditingProduct(null); // Close any open edit forms
+                      }}
+                      className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors"
+                    >
+                      {showNewProductForm ? "Cancel" : "+ Add New Product"}
+                    </button>
+                  </div>
                 </div>
+
+                {/* Product Ordering Panel */}
+                {showOrderingPanel && (
+                  <div className="bg-white rounded-lg shadow-md p-6 border-2 border-brown-200 mb-4">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">Product display order</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Reorder categories and products to control how they appear on the main page.
+                    </p>
+                    <div className="space-y-6">
+                      {(effectiveDisplayConfig.categoryOrder || []).map((category, catIndex) => (
+                        <div key={category} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="font-semibold text-gray-900">{category}</span>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => moveCategory(catIndex, "up")}
+                                disabled={catIndex === 0}
+                                className="p-1.5 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Move category up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                onClick={() => moveCategory(catIndex, "down")}
+                                disabled={catIndex === (effectiveDisplayConfig.categoryOrder?.length ?? 0) - 1}
+                                className="p-1.5 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Move category down"
+                              >
+                                ↓
+                              </button>
+                            </div>
+                          </div>
+                          <ul className="space-y-1 pl-2">
+                            {(effectiveDisplayConfig.productOrderByCategory?.[category] || []).map((productId, prodIndex) => {
+                              const product = products.find((p) => p.id === productId);
+                              return (
+                                <li key={productId} className="flex items-center justify-between py-1">
+                                  <span className="text-sm text-gray-700">
+                                    {product?.name ?? productId}
+                                  </span>
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => moveProduct(category, prodIndex, "up")}
+                                      disabled={prodIndex === 0}
+                                      className="p-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                                      title="Move product up"
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      onClick={() => moveProduct(category, prodIndex, "down")}
+                                      disabled={prodIndex === (effectiveDisplayConfig.productOrderByCategory?.[category]?.length ?? 0) - 1}
+                                      className="p-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                                      title="Move product down"
+                                    >
+                                      ↓
+                                    </button>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={handleSaveDisplayConfig}
+                        disabled={displayConfigSaving}
+                        className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {displayConfigSaving ? "Saving…" : "Save order"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* New Product Form */}
                 {showNewProductForm && (
@@ -1820,23 +2280,30 @@ export default function AdminPage() {
                     }
 
                     const dateStr = formatDateString(date);
-                    const isBlocked = blockedDates.includes(dateStr);
+                    const isBlockedByDate = blockedDates.includes(dateStr);
+                    const isBlockedByWeekday = !!pickupTimesConfig?.[String(date.getDay())]?.blocked;
+                    const isBlocked = isBlockedByDate || isBlockedByWeekday;
                     const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
                     const isToday =
                       formatDateString(date) === formatDateString(new Date());
                     const ordersForDate = getOrdersForDate(date);
                     const canBlock = !isPast;
 
+                    const hasDateOverride = !!pickupWindowDates[dateStr];
                     return (
                       <div
                         key={dateStr}
+                        onClick={() => !isPast && setSelectedDateForWindow(dateStr)}
+                        role="button"
+                        tabIndex={isPast ? -1 : 0}
+                        onKeyDown={(e) => !isPast && (e.key === "Enter" || e.key === " ") && setSelectedDateForWindow(dateStr)}
                         className={`min-h-24 border rounded-lg p-2 ${
                           isToday
                             ? "bg-brown-50 border-brown-300"
                             : isBlocked
                             ? "bg-red-50 border-red-300"
                             : "bg-gray-50 border-gray-200"
-                        } ${isPast ? "opacity-50" : ""}`}
+                        } ${isPast ? "opacity-50" : "cursor-pointer hover:ring-2 hover:ring-brown-400"} ${hasDateOverride ? "ring-1 ring-blue-300" : ""}`}
                       >
                         <div className="flex justify-between items-start mb-1">
                           <span
@@ -1849,10 +2316,17 @@ export default function AdminPage() {
                             }`}
                           >
                             {date.getDate()}
+                            {hasDateOverride && (
+                              <span className="ml-1 text-blue-600" title="Custom pickup window">●</span>
+                            )}
                           </span>
                           {canBlock && (
                             <button
-                              onClick={() => toggleBlockedDate(dateStr)}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleBlockedDate(dateStr);
+                              }}
                               disabled={togglingDates.has(dateStr)}
                               className={`text-xs px-2 py-1 rounded ${
                                 isBlocked
@@ -1905,6 +2379,21 @@ export default function AdminPage() {
                   })}
                 </div>
 
+                {/* Pickup window modal for specific date */}
+                {selectedDateForWindow && (
+                  <PickupWindowDateModal
+                    date={selectedDateForWindow}
+                    window={pickupWindowDates[selectedDateForWindow] ?? getEffectiveWindowForDate(parseLocalDateString(selectedDateForWindow)!)}
+                    defaultWindow={getWeekdayWindowForDate(parseLocalDateString(selectedDateForWindow)!)}
+                    hasOverride={!!pickupWindowDates[selectedDateForWindow]}
+                    onClose={() => setSelectedDateForWindow(null)}
+                    onSave={handleSavePickupWindowForDate}
+                    onRemoveOverride={handleRemovePickupWindowForDate}
+                    saving={pickupWindowSaving}
+                    timeOptions={PICKUP_TIME_OPTIONS}
+                  />
+                )}
+
                 {/* Legend */}
                 <div className="mt-6 flex flex-wrap gap-4 text-sm">
                   <div className="flex items-center gap-2">
@@ -1918,6 +2407,181 @@ export default function AdminPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-orange-100 rounded"></div>
                     <span>Pending Orders</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-600">●</span>
+                    <span>Custom pickup window (click day to edit)</span>
+                  </div>
+                </div>
+
+                {/* Pickup time configuration */}
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Pickup Time Windows
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Configure the default pickup start and end times for each day of the week.
+                    These times are used to generate the 30-minute time slots on the checkout page
+                    and for the next available pickup banner.
+                  </p>
+                  {/* Mobile: card layout for clearer display */}
+                  <div className="space-y-3 md:hidden">
+                    {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(
+                      (label, idx) => {
+                        const key = String(idx);
+                        const window = pickupTimesConfig?.[key] || {
+                          startTime: "12:00 PM",
+                          endTime: "6:00 PM",
+                        };
+                        const isBlocked = !!window.blocked;
+                        return (
+                          <div
+                            key={key}
+                            className={`rounded-lg border p-4 space-y-3 ${isBlocked ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"}`}
+                          >
+                            <div className="font-semibold text-gray-900">{label}</div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Start</label>
+                                <select
+                                  value={PICKUP_TIME_OPTIONS.includes(window.startTime) ? window.startTime : "12:00 PM"}
+                                  onChange={(e) =>
+                                    handlePickupTimeChange(key, "startTime", e.target.value)
+                                  }
+                                  disabled={isBlocked}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-brown-500 focus:border-brown-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                >
+                                  {PICKUP_TIME_OPTIONS.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">End</label>
+                                <select
+                                  value={PICKUP_TIME_OPTIONS.includes(window.endTime) ? window.endTime : "6:00 PM"}
+                                  onChange={(e) =>
+                                    handlePickupTimeChange(key, "endTime", e.target.value)
+                                  }
+                                  disabled={isBlocked}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-brown-500 focus:border-brown-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                >
+                                  {PICKUP_TIME_OPTIONS.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handlePickupBlockedToggle(key)}
+                              className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                isBlocked
+                                  ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                  : "bg-red-100 text-red-700 hover:bg-red-200"
+                              }`}
+                              title={isBlocked ? "Unblock this weekday (pickup available again)" : "Full block this weekday (no pickup)"}
+                            >
+                              {isBlocked ? "Unblock day" : "Block day"}
+                            </button>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+
+                  {/* Desktop: table layout */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="px-3 py-2 text-left font-medium text-gray-700">
+                            Day
+                          </th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-700">
+                            Start Time
+                          </th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-700">
+                            End Time
+                          </th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-700">
+                            Block day
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(
+                          (label, idx) => {
+                            const key = String(idx);
+                            const window = pickupTimesConfig?.[key] || {
+                              startTime: "12:00 PM",
+                              endTime: "6:00 PM",
+                            };
+                            const isBlocked = !!window.blocked;
+                            return (
+                              <tr key={key} className={`border-b border-gray-100 ${isBlocked ? "bg-red-50" : ""}`}>
+                                <td className="px-3 py-2 text-gray-800">{label}</td>
+                                <td className="px-3 py-2">
+                                  <select
+                                    value={PICKUP_TIME_OPTIONS.includes(window.startTime) ? window.startTime : "12:00 PM"}
+                                    onChange={(e) =>
+                                      handlePickupTimeChange(key, "startTime", e.target.value)
+                                    }
+                                    disabled={isBlocked}
+                                    className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-brown-500 focus:border-brown-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                  >
+                                    {PICKUP_TIME_OPTIONS.map((t) => (
+                                      <option key={t} value={t}>{t}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <select
+                                    value={PICKUP_TIME_OPTIONS.includes(window.endTime) ? window.endTime : "6:00 PM"}
+                                    onChange={(e) =>
+                                      handlePickupTimeChange(key, "endTime", e.target.value)
+                                    }
+                                    disabled={isBlocked}
+                                    className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-brown-500 focus:border-brown-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                  >
+                                    {PICKUP_TIME_OPTIONS.map((t) => (
+                                      <option key={t} value={t}>{t}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePickupBlockedToggle(key)}
+                                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                      isBlocked
+                                        ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                        : "bg-red-100 text-red-700 hover:bg-red-200"
+                                    }`}
+                                    title={isBlocked ? "Unblock this weekday (pickup available again)" : "Full block this weekday (no pickup)"}
+                                  >
+                                    {isBlocked ? "Unblock day" : "Block day"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSavePickupTimes}
+                      disabled={!pickupTimesConfig || pickupTimesSaving}
+                      className="px-4 py-2 bg-brown-600 text-white rounded-lg text-sm font-medium hover:bg-brown-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {pickupTimesSaving ? "Saving..." : "Save Pickup Times"}
+                    </button>
+                    <span className="text-xs text-gray-500">
+                      Options are every 30 minutes from 8:00 AM to 10:00 PM.
+                    </span>
                   </div>
                 </div>
               </div>

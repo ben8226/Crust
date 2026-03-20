@@ -1,8 +1,8 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
-import { getProducts } from "@/lib/db";
-import { getBlockedDates } from "@/lib/db";
+import { getProducts, getProductDisplayConfig } from "@/lib/db";
+import { getBlockedDates, getPickupTimes, getPickupWindowDates } from "@/lib/db";
 import { formatDateInput } from "@/lib/date";
 import { products as staticProducts } from "@/data/products";
 import { Product } from "@/types/product";
@@ -27,7 +27,11 @@ async function fetchProducts() {
 
 async function getNextAvailablePickup() {
   try {
-    const blockedDates = await getBlockedDates();
+    const [blockedDates, pickupTimesConfig, pickupWindowDates] = await Promise.all([
+      getBlockedDates(),
+      getPickupTimes(),
+      getPickupWindowDates(),
+    ]);
 
     // Start from 2 days from today (minimum advance notice)
     const startDate = new Date();
@@ -43,15 +47,15 @@ async function getNextAvailablePickup() {
       const checkDateString = formatDateInput(checkDate);
 
       // Skip if date is blocked
-      if (blockedDates.includes(checkDateString)) {
-        continue;
-      }
+      if (blockedDates.includes(checkDateString)) continue;
+      if (pickupWindowDates[checkDateString]?.blocked) continue;
 
-      const dayOfWeek = checkDate.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
-
-      // Earliest time based on weekday/weekend
-      const earliestTime = isWeekend ? "12:00 PM" : "12:00 PM";
+      const dayOfWeek = checkDate.getDay(); // 0-6
+      const dateOverride = pickupWindowDates[checkDateString];
+      const weekdayWindow = pickupTimesConfig[String(dayOfWeek)];
+      const windowForDay = dateOverride ?? weekdayWindow;
+      if (windowForDay?.blocked) continue; // no pickup on this weekday
+      const earliestTime = windowForDay?.startTime || "12:00 PM";
 
       return {
         date: checkDate,
@@ -67,55 +71,74 @@ async function getNextAvailablePickup() {
   }
 }
 
-// Group products by category and sort
-function organizeProducts(products: Product[]) {
-  // Define category priority (Sourdough Bread first, then others alphabetically)
+// Group products by category and sort (uses admin display config when available)
+function organizeProducts(
+  products: Product[],
+  displayConfig?: { categoryOrder?: string[]; productOrderByCategory?: Record<string, string[]> }
+) {
   const categoryPriority: Record<string, number> = {
     "Sourdough Bread": 0,
-    "Bread": 0, // Legacy support
-    "Breads": 0, // Handle plural variations
+    "Bread": 0,
+    "Breads": 0,
   };
 
-  // Group products by category
   const grouped = products.reduce((acc, product) => {
     const category = product.category || "Other";
-    if (!acc[category]) {
-      acc[category] = [];
-    }
+    if (!acc[category]) acc[category] = [];
     acc[category].push(product);
     return acc;
   }, {} as Record<string, Product[]>);
 
-  // Sort products within each category by price
-  Object.keys(grouped).forEach((category) => {
-    grouped[category].sort((a, b) => a.price - b.price);
-  });
+  const categoryNames = Object.keys(grouped);
 
-  // Sort categories: Bread first, then others alphabetically
-  const sortedCategories = Object.keys(grouped).sort((a, b) => {
-    const priorityA = categoryPriority[a] ?? 999;
-    const priorityB = categoryPriority[b] ?? 999;
-    
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB;
+  // Sort categories: use admin config if present, else default (Bread first, then alpha)
+  let sortedCategories: string[];
+  if (displayConfig?.categoryOrder?.length) {
+    const orderSet = new Set(displayConfig.categoryOrder);
+    const ordered = displayConfig.categoryOrder.filter((c) => grouped[c]);
+    const rest = categoryNames.filter((c) => !orderSet.has(c)).sort((a, b) => a.localeCompare(b));
+    sortedCategories = [...ordered, ...rest];
+  } else {
+    sortedCategories = categoryNames.sort((a, b) => {
+      const pa = categoryPriority[a] ?? 999;
+      const pb = categoryPriority[b] ?? 999;
+      if (pa !== pb) return pa - pb;
+      return a.localeCompare(b);
+    });
+  }
+
+  // Sort products within each category: use admin config if present, else by price
+  const productOrder = displayConfig?.productOrderByCategory;
+  sortedCategories.forEach((category) => {
+    const items = grouped[category];
+    if (productOrder?.[category]?.length) {
+      const orderMap = new Map(productOrder[category].map((id, i) => [id, i]));
+      items.sort((a, b) => {
+        const ia = orderMap.get(a.id) ?? 9999;
+        const ib = orderMap.get(b.id) ?? 9999;
+        if (ia !== ib) return ia - ib;
+        return a.price - b.price;
+      });
+    } else {
+      items.sort((a, b) => a.price - b.price);
     }
-    
-    return a.localeCompare(b);
   });
 
   return { grouped, sortedCategories };
 }
 
 export default async function Home() {
-  const allProducts = await fetchProducts();
-  // Only show products that are not hidden from the main menu
+  const [allProducts, displayConfig] = await Promise.all([
+    fetchProducts(),
+    getProductDisplayConfig(),
+  ]);
   const products = allProducts.filter((p) => !p.hiddenFromMenu);
-  const { grouped, sortedCategories } = organizeProducts(products);
+  const { grouped, sortedCategories } = organizeProducts(products, displayConfig);
   const nextPickup = await getNextAvailablePickup();
 
-  // Get available breads for loaf boxes (all bread products except the box itself)
+  // Get available breads for loaf boxes (only Sourdough Bread category, exclude the box itself and limited-time items)
   const availableBreads = products.filter(
-    (p) => p.category?.toLowerCase().includes("bread") && p.loafType !== 'mini' && p.loafType !== 'half' && p.inStock
+    (p) => p.category === "Sourdough Bread" && p.loafType !== 'mini' && p.loafType !== 'half' && p.inStock && !p.limitedTime
   );
 
   return (

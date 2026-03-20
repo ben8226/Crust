@@ -1,5 +1,6 @@
 # Product Order Website
 
+
 A modern, full-stack product ordering website built with Next.js, TypeScript, and Tailwind CSS.
 
 ## Features
@@ -158,6 +159,19 @@ The app includes SMS notification functionality using Twilio:
 
 See `SMS_SETUP.md` for complete setup instructions.
 
+### Pickup Reminders (Textbelt)
+
+Pickup reminder texts are sent automatically on the day of each order's pickup using [Textbelt](https://textbelt.com/).
+
+**Environment variables:**
+- `TEXTBELT_API_KEY` – Your Textbelt API key (required for reminders)
+- `PICKUP_TIMEZONE` – Timezone for "today" (default: `America/Chicago`)
+- `CRON_SECRET` – Secret for securing the cron endpoint (recommended on Vercel)
+
+**Cron schedule:** The reminder job runs daily at 8am Central (1pm UTC) via Vercel Cron. It sends one text per order with pickup date = today that hasn't been reminded yet.
+
+**Manual trigger:** `GET /api/cron/send-pickup-reminders?secret=YOUR_CRON_SECRET`
+
 ## Future Enhancements
 
 - Database integration (PostgreSQL/MongoDB)
@@ -172,4 +186,3 @@ See `SMS_SETUP.md` for complete setup instructions.
 ## License
 
 MIT
-
