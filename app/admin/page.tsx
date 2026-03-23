@@ -1453,8 +1453,13 @@ export default function AdminPage() {
                             {order.items.map((item, index) => (
                               <div key={index} className="text-sm text-gray-700">
                                 <div className="flex justify-between">
-                                  <span>
+                                  <span className="flex items-center gap-2">
                                     {item.product.name} × {item.quantity}
+                                    {item.cut && (
+                                      <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-900">
+                                        Cut
+                                      </span>
+                                    )}
                                   </span>
                                   <span>
                                     ${(item.product.price * item.quantity).toFixed(2)}
