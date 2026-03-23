@@ -49,12 +49,13 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
-      <div className="relative w-full aspect-[3/2] sm:aspect-square bg-gray-200">
+      {/* Product art is 6400×8400 (width × height) → aspect width/height = 6400/8400 = 16/21 */}
+      <div className="relative w-full aspect-[6400/4800] bg-gray-200">
         <Image
           src={product.image}
           alt={product.name}
           fill
-          className="object-cover object-bottom sm:object-center"
+          className="object-cover object-center"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
         {product.limitedTime && (
