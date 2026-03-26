@@ -47,6 +47,7 @@ export async function PATCH(
     if (body.allergens !== undefined) updates.allergens = body.allergens;
     if (body.limitedTime !== undefined) updates.limitedTime = body.limitedTime;
     if (body.hiddenFromMenu !== undefined) updates.hiddenFromMenu = body.hiddenFromMenu;
+    if (body.includeInSampleBoxes !== undefined) updates.includeInSampleBoxes = body.includeInSampleBoxes;
 
     const updatedProduct = await updateProduct(params.id, updates);
 

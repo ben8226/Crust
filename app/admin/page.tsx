@@ -212,11 +212,13 @@ export default function AdminPage() {
     allergens: {
       wheat: false,
       dairy: false,
+      milk: false,
       egg: false,
       sesame: false,
     },
     limitedTime: false,
     hiddenFromMenu: false,
+    includeInSampleBoxes: false,
   });
 
   // Calendar state
@@ -590,6 +592,8 @@ export default function AdminPage() {
           allergens: editingProduct.allergens,
           limitedTime: editingProduct.limitedTime,
           hiddenFromMenu: editingProduct.hiddenFromMenu ?? false,
+          includeInSampleBoxes:
+            editingProduct.hiddenFromMenu ? (editingProduct.includeInSampleBoxes ?? false) : false,
         }),
       });
 
@@ -635,9 +639,12 @@ export default function AdminPage() {
           ingredients: newProduct.ingredients || "",
           inStock: newProduct.inStock ?? true,
           loafType: newProduct.loafType,
-          allergens: newProduct.allergens || { wheat: false, dairy: false, egg: false, sesame: false },
+          allergens:
+            newProduct.allergens || { wheat: false, dairy: false, milk: false, egg: false, sesame: false },
           limitedTime: newProduct.limitedTime ?? false,
           hiddenFromMenu: newProduct.hiddenFromMenu ?? false,
+          includeInSampleBoxes:
+            newProduct.hiddenFromMenu ? (newProduct.includeInSampleBoxes ?? false) : false,
         }),
       });
 
@@ -655,6 +662,8 @@ export default function AdminPage() {
           inStock: true,
           loafType: undefined,
           limitedTime: false,
+          hiddenFromMenu: false,
+          includeInSampleBoxes: false,
         });
         setShowNewProductForm(false);
       } else {
@@ -1796,6 +1805,9 @@ export default function AdminPage() {
                                 setNewProduct({
                                   ...newProduct,
                                   hiddenFromMenu: e.target.checked,
+                                    includeInSampleBoxes: e.target.checked
+                                      ? (newProduct.includeInSampleBoxes ?? false)
+                                      : false,
                                 })
                               }
                               className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
@@ -1804,6 +1816,24 @@ export default function AdminPage() {
                               Hide from order menu
                             </span>
                           </label>
+                            {(newProduct.hiddenFromMenu ?? false) && (
+                              <label className="ml-6 flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={newProduct.includeInSampleBoxes ?? false}
+                                  onChange={(e) =>
+                                    setNewProduct({
+                                      ...newProduct,
+                                      includeInSampleBoxes: e.target.checked,
+                                    })
+                                  }
+                                  className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                  Still include in the sample boxes?
+                                </span>
+                              </label>
+                            )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1843,6 +1873,23 @@ export default function AdminPage() {
                                 className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                               />
                               <span className="text-sm text-gray-700">Dairy</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={newProduct.allergens?.milk ?? false}
+                                onChange={(e) =>
+                                  setNewProduct({
+                                    ...newProduct,
+                                    allergens: {
+                                      ...newProduct.allergens,
+                                      milk: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="w-4 h-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm text-gray-700">Milk</span>
                             </label>
                             <label className="flex items-center gap-2">
                               <input
@@ -1901,7 +1948,7 @@ export default function AdminPage() {
                               ingredients: "",
                               inStock: true,
                               loafType: undefined,
-                              allergens: { wheat: false, dairy: false, egg: false, sesame: false },
+                              allergens: { wheat: false, dairy: false, milk: false, egg: false, sesame: false },
                               limitedTime: false,
                             });
                           }}
@@ -2079,6 +2126,9 @@ export default function AdminPage() {
                                   setEditingProduct({
                                     ...editingProduct,
                                     hiddenFromMenu: e.target.checked,
+                                    includeInSampleBoxes: e.target.checked
+                                      ? (editingProduct.includeInSampleBoxes ?? false)
+                                      : false,
                                   })
                                 }
                                 className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
@@ -2087,6 +2137,24 @@ export default function AdminPage() {
                                 Hide from order menu
                               </span>
                             </label>
+                            {(editingProduct.hiddenFromMenu ?? false) && (
+                              <label className="ml-6 flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={editingProduct.includeInSampleBoxes ?? false}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      includeInSampleBoxes: e.target.checked,
+                                    })
+                                  }
+                                  className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                  Still include in the sample boxes?
+                                </span>
+                              </label>
+                            )}
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2126,6 +2194,23 @@ export default function AdminPage() {
                                   className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                 />
                                 <span className="text-sm text-gray-700">Dairy</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={editingProduct.allergens?.milk ?? false}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      allergens: {
+                                        ...editingProduct.allergens,
+                                        milk: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-4 h-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm text-gray-700">Milk</span>
                               </label>
                               <label className="flex items-center gap-2">
                                 <input

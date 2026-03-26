@@ -8,11 +8,13 @@ export interface Product {
   inStock: boolean;
   limitedTime?: boolean;
   hiddenFromMenu?: boolean;
+  includeInSampleBoxes?: boolean; // Allow hidden products to still be selectable in sample boxes
   ingredients?: string; // Optional ingredients list
   loafType?: "mini" | "half"; // Special product types that require bread selection
   allergens?: {
     wheat?: boolean;
     dairy?: boolean;
+    milk?: boolean;
     egg?: boolean;
     sesame?: boolean;
   };

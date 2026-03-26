@@ -136,9 +136,16 @@ export default async function Home() {
   const { grouped, sortedCategories } = organizeProducts(products, displayConfig);
   const nextPickup = await getNextAvailablePickup();
 
-  // Get available breads for loaf boxes (only Sourdough Bread category, exclude the box itself and limited-time items)
-  const availableBreads = products.filter(
-    (p) => p.category === "Sourdough Bread" && p.loafType !== 'mini' && p.loafType !== 'half' && p.inStock && !p.limitedTime
+  // Get available breads for loaf boxes.
+  // Hidden products can still appear here when explicitly allowed from admin.
+  const availableBreads = allProducts.filter(
+    (p) =>
+      p.category === "Sourdough Bread" &&
+      p.loafType !== "mini" &&
+      p.loafType !== "half" &&
+      p.inStock &&
+      !p.limitedTime &&
+      (!p.hiddenFromMenu || p.includeInSampleBoxes)
   );
 
   return (
