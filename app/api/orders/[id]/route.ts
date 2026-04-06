@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getOrderById, updateOrder, deleteOrder } from "@/lib/db";
 import { Order } from "@/types/product";
+import {
+  sendReviewSavedNotificationEmail,
+  shouldSendReviewNotification,
+} from "@/lib/email";
 
 function formatPhoneForStorage(phone: string): string {
   let digits = (phone || "").replace(/\D/g, "");
@@ -38,7 +42,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, unknown>;
     const updates: Partial<Order> & {
       itemReviews?: Record<number, string>;
       itemRatings?: Record<number, number>;
@@ -105,6 +109,12 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Order not found or update failed" },
         { status: 404 }
+      );
+    }
+
+    if (shouldSendReviewNotification(body)) {
+      sendReviewSavedNotificationEmail(updatedOrder, body).catch((err) =>
+        console.error("Review notification email failed:", err)
       );
     }
 

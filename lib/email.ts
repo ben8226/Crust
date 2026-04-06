@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { Order, Product } from "@/types/product";
+import { CartItem, Order, Product } from "@/types/product";
 import { formatPickupDisplay } from "@/lib/date";
 import { getProducts } from "@/lib/db";
 
@@ -178,6 +178,175 @@ function getCalendarUrl(orderId: string): string {
                   "http://localhost:3000/"; // Fallback - should be set in production
   
   return `${baseUrl}/api/orders/${orderId}/calendar`;
+}
+
+/** True when PATCH body looks like a customer saved a review (overall text, item text, or item stars). */
+export function shouldSendReviewNotification(body: Record<string, unknown>): boolean {
+  if (typeof body.review === "string" && body.review.trim().length > 0) return true;
+  if (body.itemReviews && typeof body.itemReviews === "object" && body.itemReviews !== null) {
+    const vals = Object.values(body.itemReviews as Record<string, unknown>);
+    if (vals.some((v) => typeof v === "string" && v.trim().length > 0)) return true;
+  }
+  if (body.itemRatings && typeof body.itemRatings === "object" && body.itemRatings !== null) {
+    if (Object.keys(body.itemRatings as Record<string, unknown>).length > 0) return true;
+  }
+  return false;
+}
+
+function sampleBoxPicksHtml(item: CartItem, breadNames: Map<string, string>): string {
+  const isBox = item.product.loafType === "mini" || item.product.loafType === "half";
+  if (!isBox || !item.selectedBreads?.length) return "";
+  const lis = item.selectedBreads
+    .map((id) => `<li>${escapeHtml(breadNames.get(id) || id)}</li>`)
+    .join("");
+  return `
+    <div style="margin:0 0 10px 0; padding:10px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+      <div style="font-size:12px; font-weight:600; color:#555; margin-bottom:6px;">Sample box breads</div>
+      <ul style="margin:0; padding-left:18px; color:#333;">${lis}</ul>
+    </div>
+  `;
+}
+
+function sampleBoxPicksText(item: CartItem, breadNames: Map<string, string>): string {
+  const isBox = item.product.loafType === "mini" || item.product.loafType === "half";
+  if (!isBox || !item.selectedBreads?.length) return "";
+  const lines = item.selectedBreads.map((id) => `  - ${breadNames.get(id) || id}`);
+  return `Sample box breads:\n${lines.join("\n")}\n\n`;
+}
+
+function buildReviewNotificationHtml(
+  order: Order,
+  body: Record<string, unknown>,
+  breadNames: Map<string, string>
+): string {
+  const blocks: string[] = [];
+  blocks.push(
+    `<p style="margin:0 0 12px 0; color:#444;"><strong>Order #</strong> ${escapeHtml(order.id)}</p>`,
+    `<p style="margin:0 0 18px 0; color:#444;"><strong>Customer</strong> ${escapeHtml(order.customerName || "—")}</p>`
+  );
+
+  if (typeof body.review === "string" && body.review.trim().length > 0) {
+    blocks.push(
+      `<h2 style="margin:16px 0 8px 0; font-size:16px;">Overall review</h2>`,
+      `<p style="margin:0; white-space:pre-wrap; color:#111;">${escapeHtml(body.review.trim())}</p>`
+    );
+  }
+
+  const reviewTexts =
+    body.itemReviews && typeof body.itemReviews === "object" && body.itemReviews !== null
+      ? (body.itemReviews as Record<string, string>)
+      : {};
+  const ratings =
+    body.itemRatings && typeof body.itemRatings === "object" && body.itemRatings !== null
+      ? (body.itemRatings as Record<string, number>)
+      : {};
+  const indices = new Set([...Object.keys(reviewTexts), ...Object.keys(ratings)]);
+
+  for (const k of indices) {
+    const idx = Number(k);
+    if (Number.isNaN(idx)) continue;
+    const item = order.items[idx];
+    if (!item) continue;
+    const text = (reviewTexts[k] ?? "").trim();
+    const rating = ratings[k];
+    const hasRating = typeof rating === "number" && rating >= 1 && rating <= 5;
+    if (!text && !hasRating) continue;
+
+    blocks.push(`<h2 style="margin:16px 0 8px 0; font-size:16px;">Product: ${escapeHtml(item.product.name)}</h2>`);
+    blocks.push(sampleBoxPicksHtml(item, breadNames));
+    if (hasRating) {
+      blocks.push(`<p style="margin:0 0 8px 0; color:#444;"><strong>Rating</strong> ${rating} / 5</p>`);
+    }
+    if (text) {
+      blocks.push(`<p style="margin:0; white-space:pre-wrap; color:#111;">${escapeHtml(text)}</p>`);
+    }
+  }
+
+  return `
+    <div style="font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#111;">
+      <div style="max-width:640px; margin:0 auto; padding:24px;">
+        <h1 style="margin:0 0 8px 0; font-size:20px;">New customer review</h1>
+        ${blocks.join("")}
+      </div>
+    </div>
+  `;
+}
+
+function buildReviewNotificationText(
+  order: Order,
+  body: Record<string, unknown>,
+  breadNames: Map<string, string>
+): string {
+  const lines: string[] = ["New customer review", "", `Order #: ${order.id}`, `Customer: ${order.customerName || "—"}`, ""];
+
+  if (typeof body.review === "string" && body.review.trim().length > 0) {
+    lines.push("Overall review", body.review.trim(), "");
+  }
+
+  const reviewTexts =
+    body.itemReviews && typeof body.itemReviews === "object" && body.itemReviews !== null
+      ? (body.itemReviews as Record<string, string>)
+      : {};
+  const ratings =
+    body.itemRatings && typeof body.itemRatings === "object" && body.itemRatings !== null
+      ? (body.itemRatings as Record<string, number>)
+      : {};
+  const indices = new Set([...Object.keys(reviewTexts), ...Object.keys(ratings)]);
+
+  for (const k of indices) {
+    const idx = Number(k);
+    if (Number.isNaN(idx)) continue;
+    const item = order.items[idx];
+    if (!item) continue;
+    const text = (reviewTexts[k] ?? "").trim();
+    const rating = ratings[k];
+    const hasRating = typeof rating === "number" && rating >= 1 && rating <= 5;
+    if (!text && !hasRating) continue;
+
+    lines.push(`Product: ${item.product.name}`);
+    const picksText = sampleBoxPicksText(item, breadNames);
+    if (picksText) lines.push(picksText.trimEnd());
+    if (hasRating) lines.push(`Rating: ${rating} / 5`);
+    if (text) lines.push(text);
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/** Notify store inboxes when a customer saves a review. Sends to RESEND_BCC_EMAIL and RESEND_BCC_EMAIL_2. */
+export async function sendReviewSavedNotificationEmail(
+  order: Order,
+  body: Record<string, unknown>
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM;
+  const bcc1 = (process.env.RESEND_BCC_EMAIL || "").trim();
+  const bcc2 = (process.env.RESEND_BCC_EMAIL_2 || "").trim();
+  const recipients = [bcc1, bcc2].filter(Boolean);
+
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY not configured. Skipping review notification email.");
+    return;
+  }
+  if (!from) {
+    console.warn("RESEND_FROM not configured. Skipping review notification email.");
+    return;
+  }
+  if (recipients.length === 0) {
+    console.warn("RESEND_BCC_EMAIL / RESEND_BCC_EMAIL_2 not configured. Skipping review notification email.");
+    return;
+  }
+
+  const breadNames = await buildBreadNameLookup();
+  const resend = new Resend(apiKey);
+  await resend.emails.send({
+    from,
+    to: recipients,
+    subject: `New customer review — Order ${order.id}`,
+    html: buildReviewNotificationHtml(order, body, breadNames),
+    text: buildReviewNotificationText(order, body, breadNames),
+  });
 }
 
 export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
