@@ -15,6 +15,7 @@ interface DisplayReview {
   source: ReviewSource;
   /** Product name when source === "product" */
   productName: string | null;
+  productCategory: string | null;
   productId: string | null;
   /** Resolved bread names when this review is for a mini/half sample box */
   sampleBoxBreadNames?: string[];
@@ -73,6 +74,7 @@ function buildAllReviews(orders: Order[], nameByProductId: Map<string, string>):
         firstName,
         source: "overall",
         productName: null,
+        productCategory: null,
         productId: null,
         text: overall,
       });
@@ -95,6 +97,7 @@ function buildAllReviews(orders: Order[], nameByProductId: Map<string, string>):
         firstName,
         source: "product",
         productName: item.product.name,
+        productCategory: item.product.category || null,
         productId: item.product.id,
         sampleBoxBreadNames,
         text,
@@ -173,8 +176,8 @@ export default function ReviewsPage() {
               >
                 <p className="text-base font-semibold text-gray-900">
                   {rev.source === "overall"
-                    ? "Overall review"
-                    : rev.productName || "Product"}
+                    ? "Overall Shop Review"
+                    : `${rev.productName || "Product"}${rev.productCategory ? ` - ${rev.productCategory}` : ""}`}
                 </p>
                 <p className="text-xs text-gray-600 mt-1">{rev.firstName}</p>
                 {rev.sampleBoxBreadNames && rev.sampleBoxBreadNames.length > 0 && (
