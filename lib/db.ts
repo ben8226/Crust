@@ -1,5 +1,15 @@
 import { Product, Order } from "@/types/product";
+import type { TextReplyEntry } from "@/types/text-reply";
+import type { TextLogEntry } from "@/types/texts";
 import { UpdateEntry } from "@/types/update";
+
+/** Redis key for SMS / cron run logs ("Texts" table). */
+const TEXTS_REDIS_KEY = "texts";
+const MAX_TEXTS_ENTRIES = 300;
+
+/** Redis key for inbound SMS replies ("TextReplys"). */
+const TEXT_REPLIES_REDIS_KEY = "textReplys";
+const MAX_TEXT_REPLY_ENTRIES = 500;
 
 // Pickup time window configuration for a single day
 export interface PickupTimeWindow {
@@ -726,6 +736,74 @@ export async function setProductDisplayConfig(config: ProductDisplayConfig): Pro
     await redis.set("productDisplayConfig", config);
   } catch (error) {
     console.error("Error saving product display config:", error);
+    throw error;
+  }
+}
+
+/** Read all rows from the Texts log (newest first). */
+export async function getTexts(): Promise<TextLogEntry[]> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.warn("Redis not available, returning empty texts log");
+      return [];
+    }
+    const data = await redis.get<TextLogEntry[]>(TEXTS_REDIS_KEY);
+    return data || [];
+  } catch (error) {
+    console.error("Error reading texts from Redis:", error);
+    return [];
+  }
+}
+
+/** Read inbound SMS reply rows (newest first). */
+export async function getTextReplies(): Promise<TextReplyEntry[]> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.warn("Redis not available, returning empty text replies log");
+      return [];
+    }
+    const data = await redis.get<TextReplyEntry[]>(TEXT_REPLIES_REDIS_KEY);
+    return data || [];
+  } catch (error) {
+    console.error("Error reading text replies from Redis:", error);
+    return [];
+  }
+}
+
+/** Append one inbound SMS reply row (prepends so newest appear first). */
+export async function appendTextReplyEntry(entry: TextReplyEntry): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.warn("Redis not available, text reply not persisted");
+      return;
+    }
+    const existing = (await redis.get<TextReplyEntry[]>(TEXT_REPLIES_REDIS_KEY)) || [];
+    const next = [entry, ...existing].slice(0, MAX_TEXT_REPLY_ENTRIES);
+    await redis.set(TEXT_REPLIES_REDIS_KEY, next);
+    console.log(`✓ Text reply entry ${entry.id} saved (${next.length} rows)`);
+  } catch (error) {
+    console.error("Error appending text reply to Redis:", error);
+    throw error;
+  }
+}
+
+/** Append one row to the Texts log (prepends so newest appear first). */
+export async function appendTextsEntry(entry: TextLogEntry): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.warn("Redis not available, texts entry not persisted");
+      return;
+    }
+    const existing = (await redis.get<TextLogEntry[]>(TEXTS_REDIS_KEY)) || [];
+    const next = [entry, ...existing].slice(0, MAX_TEXTS_ENTRIES);
+    await redis.set(TEXTS_REDIS_KEY, next);
+    console.log(`✓ Texts log entry ${entry.id} saved (${next.length} rows)`);
+  } catch (error) {
+    console.error("Error appending texts entry to Redis:", error);
     throw error;
   }
 }

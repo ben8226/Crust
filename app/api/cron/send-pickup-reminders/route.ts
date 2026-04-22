@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { getOrders, updateOrder } from "@/lib/db";
+import { appendTextsEntry, getOrders, updateOrder } from "@/lib/db";
 import { sendSms } from "@/lib/sms";
+import type { PickupReminderCronResult, TextLogEntry } from "@/types/texts";
+
+function newTextLogId(): string {
+  return `TEXT-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 const PICKUP_TIMEZONE = process.env.PICKUP_TIMEZONE || "America/Chicago";
 
 /** Get today's date (YYYY-MM-DD) in the pickup timezone */
@@ -49,14 +54,10 @@ export async function GET(request: Request) {
 
     const pickupAddress = (process.env.NEXT_PUBLIC_PICKUP_ADDRESS || "").trim();
     const storeName = "Crust + Culture";
-    // Used to build absolute URLs that work in SMS clients.
-    // NEXT_PUBLIC_BASE_URL should be set in production (e.g., https://yourdomain.com).
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-    const myAccountUrl = baseUrl ? `${baseUrl.replace(/\/$/, "")}/my-account` : "";
+    // replyWebhookUrl is added automatically in sendSms (Textbelt POST) when TEXT_REPLY_WEBHOOK_URL
+    // or NEXT_PUBLIC_BASE_URL / NEXT_PUBLIC_SITE_URL / VERCEL_URL is configured — see lib/sms.ts.
 
-    const results: { orderId: string; success: boolean; error?: string }[] = [];
+    const results: { orderId: string; success: boolean; textsRemaining?: number; error?: string }[] = [];
 
     for (const order of toRemind) {
       const time = order.pickupTime || "your scheduled time";
@@ -66,9 +67,7 @@ export async function GET(request: Request) {
         message += ` Address: ${pickupAddress}`;
       }
       message += "\n\nReply STOP to opt-out.";
-      if (myAccountUrl) {
-        message += `\n\nMy account: ${myAccountUrl}`;
-      }
+
 
       const result = await sendSms(order.phone, message, {
         sender: storeName,
@@ -78,11 +77,12 @@ export async function GET(request: Request) {
         await updateOrder(order.id, {
           reminderSentAt: new Date().toISOString(),
         });
-        results.push({ orderId: order.id, success: true });
+        results.push({ orderId: order.id, textsRemaining: result.quotaRemaining, success: true });
       } else {
         results.push({
           orderId: order.id,
           success: false,
+          textsRemaining: result.quotaRemaining,
           error: result.error,
         });
       }
@@ -91,17 +91,36 @@ export async function GET(request: Request) {
       await new Promise((r) => setTimeout(r, 600));
     }
 
-    return NextResponse.json({
+    const payload: PickupReminderCronResult = {
       date: today,
       sent: results.filter((r) => r.success).length,
       failed: results.filter((r) => !r.success).length,
       results,
-    });
+    };
+
+    const logEntry: TextLogEntry = {
+      id: newTextLogId(),
+      createdAt: new Date().toISOString(),
+      source: "pickup-reminders-cron",
+      result: payload,
+    };
+    appendTextsEntry(logEntry).catch((err) =>
+      console.error("Failed to persist Texts log entry:", err)
+    );
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Send pickup reminders error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to send reminders" },
-      { status: 500 }
+    const message = error instanceof Error ? error.message : "Failed to send reminders";
+    const errEntry: TextLogEntry = {
+      id: newTextLogId(),
+      createdAt: new Date().toISOString(),
+      source: "pickup-reminders-cron",
+      error: message,
+    };
+    appendTextsEntry(errEntry).catch((err) =>
+      console.error("Failed to persist Texts error log entry:", err)
     );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

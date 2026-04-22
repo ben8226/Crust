@@ -6,6 +6,8 @@ import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
+import type { TextReplyEntry } from "@/types/text-reply";
+import type { TextLogEntry } from "@/types/texts";
 import { UpdateEntry } from "@/types/update";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
@@ -25,7 +27,7 @@ const PICKUP_TIME_OPTIONS: string[] = (() => {
   return options;
 })();
 
-type Tab = "orders" | "products" | "calendar" | "gallery" | "updates" | "customers";
+type Tab = "orders" | "products" | "calendar" | "gallery" | "texts" | "updates" | "customers";
 
 function PickupWindowDateModal({
   date,
@@ -242,6 +244,12 @@ export default function AdminPage() {
   });
   const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
 
+  // Texts tab (pickup reminder cron log)
+  const [textsLog, setTextsLog] = useState<TextLogEntry[]>([]);
+  const [textReplies, setTextReplies] = useState<TextReplyEntry[]>([]);
+  const [textsLoading, setTextsLoading] = useState(false);
+  const [siteOrigin, setSiteOrigin] = useState("");
+
   // Customers state (derived from orders, keyed by phone)
   const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<{ name: string; phone: string; email: string } | null>(null);
@@ -302,12 +310,20 @@ export default function AdminPage() {
       fetchPickupWindowDates();
     } else if (activeTab === "gallery") {
       fetchGalleryImages();
+    } else if (activeTab === "texts") {
+      fetchTexts();
     } else if (activeTab === "updates") {
       fetchUpdates();
     } else if (activeTab === "customers") {
       fetchOrders();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setSiteOrigin(window.location.origin);
+    }
+  }, []);
 
   // Orders functions
   const fetchOrders = async () => {
@@ -951,6 +967,34 @@ export default function AdminPage() {
     }
   };
 
+  const fetchTexts = async () => {
+    try {
+      setTextsLoading(true);
+      const [textsRes, repliesRes] = await Promise.all([
+        fetch("/api/texts"),
+        fetch("/api/text-replies"),
+      ]);
+      if (textsRes.ok) {
+        const data: TextLogEntry[] = await textsRes.json();
+        setTextsLog(data);
+      } else {
+        setTextsLog([]);
+      }
+      if (repliesRes.ok) {
+        const replies: TextReplyEntry[] = await repliesRes.json();
+        setTextReplies(replies);
+      } else {
+        setTextReplies([]);
+      }
+    } catch (error) {
+      console.error("Error fetching texts / text replies:", error);
+      setTextsLog([]);
+      setTextReplies([]);
+    } finally {
+      setTextsLoading(false);
+    }
+  };
+
   const handleAddGalleryImage = async () => {
     if (!newImage.url) {
       alert("Please provide an image URL");
@@ -1184,6 +1228,16 @@ export default function AdminPage() {
                     }`}
                   >
                     Gallery
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("texts")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "texts"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Texts
                   </button>
                   <Link
                     href="/admin/analytics"
@@ -2763,6 +2817,178 @@ export default function AdminPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* Texts Tab */}
+        {activeTab === "texts" && (
+          <div className="space-y-6 max-w-4xl">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Texts</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Manually trigger the pickup reminder SMS job. Opens the API route in a new tab; the response is JSON
+                (sent counts, errors, etc.). Each run is appended to the Texts log in Redis.
+              </p>
+              <p className="text-xs text-gray-500 mb-4">
+                If <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">CRON_SECRET</code> is set, append{" "}
+                <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">?secret=YOUR_SECRET</code> to the URL or the
+                request will return 401.
+              </p>
+              <p className="text-xs text-gray-600 mb-3">
+                <span className="font-medium text-gray-800">SMS reply webhook (POST):</span>{" "}
+                {siteOrigin ? (
+                  <code className="block mt-1 rounded bg-gray-100 px-2 py-1.5 font-mono text-[11px] break-all">
+                    {siteOrigin}/api/sms/text-reply
+                  </code>
+                ) : (
+                  <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">/api/sms/text-reply</code>
+                )}{" "}
+                — JSON or form body with <code className="font-mono">textID</code>,{" "}
+                <code className="font-mono">fromNumber</code>, <code className="font-mono">text</code>. Rows are stored
+                in Redis as <code className="font-mono">textReplys</code>. Set{" "}
+                <code className="font-mono">TEXT_REPLY_WEBHOOK_SECRET</code> on the server to require{" "}
+                <code className="font-mono">?secret=…</code> (pickup reminders register this URL automatically when a
+                public base URL is configured).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href="/api/cron/send-pickup-reminders"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors font-medium text-sm sm:text-base"
+                >
+                  SEND TEXTS
+                </a>
+                <button
+                  type="button"
+                  onClick={() => fetchTexts()}
+                  disabled={textsLoading}
+                  className="inline-flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm sm:text-base disabled:opacity-50"
+                >
+                  {textsLoading ? "Refreshing…" : "Refresh history"}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Texts history</h3>
+              {textsLoading && <p className="text-sm text-gray-600">Loading history…</p>}
+              {!textsLoading && textsLog.length === 0 && (
+                <p className="text-sm text-gray-600">No runs logged yet. Trigger the cron job above, then refresh.</p>
+              )}
+              {!textsLoading && textsLog.length > 0 && (
+                <ul className="space-y-4">
+                  {textsLog.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="border border-gray-200 rounded-lg p-4 text-sm"
+                    >
+                      <div className="flex flex-wrap justify-between gap-2 mb-2">
+                        <span className="font-medium text-gray-900">
+                          {entry.source === "pickup-reminders-cron"
+                            ? "Pickup reminder SMS"
+                            : entry.source}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(entry.createdAt).toLocaleString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-2 font-mono">ID: {entry.id}</p>
+                      {entry.error && (
+                        <p className="text-red-700 font-medium whitespace-pre-wrap">{entry.error}</p>
+                      )}
+                      {entry.result && (
+                        <div className="space-y-2 text-gray-800">
+                          <p>
+                            <span className="text-gray-600">Pickup day (cron):</span> {entry.result.date}
+                          </p>
+                          <p>
+                            <span className="text-gray-600">Sent:</span> {entry.result.sent} ·{" "}
+                            <span className="text-gray-600">Failed:</span> {entry.result.failed}
+                          </p>
+                          {entry.result.results.length > 0 && (
+                            <div className="mt-2 overflow-x-auto">
+                              <table className="min-w-full text-xs border border-gray-200 rounded">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="text-left px-2 py-1 font-medium text-gray-600">Order</th>
+                                    <th className="text-left px-2 py-1 font-medium text-gray-600">Status</th>
+                                    <th className="text-left px-2 py-1 font-medium text-gray-600">Note</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {entry.result.results.map((r) => (
+                                    <tr key={r.orderId} className="border-t border-gray-100">
+                                      <td className="px-2 py-1 font-mono">{r.orderId}</td>
+                                      <td className="px-2 py-1">
+                                        {r.success ? (
+                                          <span className="text-green-700">OK</span>
+                                        ) : (
+                                          <span className="text-red-700">Fail</span>
+                                        )}
+                                      </td>
+                                      <td className="px-2 py-1 text-gray-600">{r.error || "—"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Text replies (TextReplys)</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Inbound SMS replies received at the webhook above. Newest first.
+              </p>
+              {!textsLoading && textReplies.length === 0 && (
+                <p className="text-sm text-gray-600">No replies stored yet.</p>
+              )}
+              {!textsLoading && textReplies.length > 0 && (
+                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-3 py-2">Time</th>
+                        <th className="px-3 py-2">Text ID</th>
+                        <th className="px-3 py-2">From</th>
+                        <th className="px-3 py-2">Message</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {textReplies.map((r) => (
+                        <tr key={r.id} className="align-top">
+                          <td className="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">
+                            {new Date(r.createdAt).toLocaleString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-800">{r.textId}</td>
+                          <td className="px-3 py-2 text-gray-800 whitespace-nowrap">{r.fromNumber}</td>
+                          <td className="px-3 py-2 text-gray-800 whitespace-pre-wrap max-w-md">{r.text}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Updates Tab */}
