@@ -43,18 +43,15 @@ export async function sendSms(
     return { success: false, error: "Invalid US phone number" };
   }
 
-  const replyWebhookUrl =
-    options?.replyWebhookUrl !== undefined
-      ? options.replyWebhookUrl.trim() || undefined
-      : getTextbeltReplyWebhookUrl();
+  const replyWebhookUrl = process.env.NEXT_PUBLIC_BASE_URL + "/api/sms/text-reply";
 
   const body: Record<string, string> = {
     phone: digits,
     message,
+    replyWebhookUrl,
     key: apiKey,
   };
   if (options?.sender) body.sender = options.sender;
-  if (replyWebhookUrl) body.replyWebhookUrl = replyWebhookUrl;
 
   try {
     const res = await fetch("https://textbelt.com/text", {
