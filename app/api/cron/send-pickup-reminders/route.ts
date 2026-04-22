@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { getOrders, updateOrder } from "@/lib/db";
+import { appendTextsEntry, getOrders, updateOrder } from "@/lib/db";
 import { sendSms } from "@/lib/sms";
+import type { PickupReminderCronResult, TextLogEntry } from "@/types/texts";
+
+function newTextLogId(): string {
+  return `TEXT-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 const PICKUP_TIMEZONE = process.env.PICKUP_TIMEZONE || "America/Chicago";
 
 /** Get today's date (YYYY-MM-DD) in the pickup timezone */
@@ -55,7 +60,7 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_BASE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
-    const results: { orderId: string; success: boolean; error?: string }[] = [];
+    const results: { orderId: string; success: boolean; textsRemaining?: number; error?: string }[] = [];
 
     for (const order of toRemind) {
       const time = order.pickupTime || "your scheduled time";
@@ -80,6 +85,7 @@ export async function GET(request: Request) {
         results.push({
           orderId: order.id,
           success: false,
+          textsRemaining: result.quotaRemaining,
           error: result.error,
         });
       }
@@ -88,17 +94,36 @@ export async function GET(request: Request) {
       await new Promise((r) => setTimeout(r, 600));
     }
 
-    return NextResponse.json({
+    const payload: PickupReminderCronResult = {
       date: today,
       sent: results.filter((r) => r.success).length,
       failed: results.filter((r) => !r.success).length,
       results,
-    });
+    };
+
+    const logEntry: TextLogEntry = {
+      id: newTextLogId(),
+      createdAt: new Date().toISOString(),
+      source: "pickup-reminders-cron",
+      result: payload,
+    };
+    appendTextsEntry(logEntry).catch((err) =>
+      console.error("Failed to persist Texts log entry:", err)
+    );
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Send pickup reminders error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to send reminders" },
-      { status: 500 }
+    const message = error instanceof Error ? error.message : "Failed to send reminders";
+    const errEntry: TextLogEntry = {
+      id: newTextLogId(),
+      createdAt: new Date().toISOString(),
+      source: "pickup-reminders-cron",
+      error: message,
+    };
+    appendTextsEntry(errEntry).catch((err) =>
+      console.error("Failed to persist Texts error log entry:", err)
     );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
