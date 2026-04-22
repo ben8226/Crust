@@ -6,7 +6,7 @@ export interface PickupReminderCronResult {
   date: string;
   sent: number;
   failed: number;
-  results: { orderId: string; success: boolean; error?: string }[];
+  results: { orderId: string; success: boolean; error?: string; textsRemaining?: number }[];
 }
 
 export interface TextLogEntry {

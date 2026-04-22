@@ -6,6 +6,7 @@ import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
+import type { TextReplyEntry } from "@/types/text-reply";
 import type { TextLogEntry } from "@/types/texts";
 import { UpdateEntry } from "@/types/update";
 import Link from "next/link";
@@ -245,7 +246,9 @@ export default function AdminPage() {
 
   // Texts tab (pickup reminder cron log)
   const [textsLog, setTextsLog] = useState<TextLogEntry[]>([]);
+  const [textReplies, setTextReplies] = useState<TextReplyEntry[]>([]);
   const [textsLoading, setTextsLoading] = useState(false);
+  const [siteOrigin, setSiteOrigin] = useState("");
 
   // Customers state (derived from orders, keyed by phone)
   const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(null);
@@ -315,6 +318,12 @@ export default function AdminPage() {
       fetchOrders();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setSiteOrigin(window.location.origin);
+    }
+  }, []);
 
   // Orders functions
   const fetchOrders = async () => {
@@ -961,16 +970,26 @@ export default function AdminPage() {
   const fetchTexts = async () => {
     try {
       setTextsLoading(true);
-      const response = await fetch("/api/texts");
-      if (response.ok) {
-        const data: TextLogEntry[] = await response.json();
+      const [textsRes, repliesRes] = await Promise.all([
+        fetch("/api/texts"),
+        fetch("/api/text-replies"),
+      ]);
+      if (textsRes.ok) {
+        const data: TextLogEntry[] = await textsRes.json();
         setTextsLog(data);
       } else {
         setTextsLog([]);
       }
+      if (repliesRes.ok) {
+        const replies: TextReplyEntry[] = await repliesRes.json();
+        setTextReplies(replies);
+      } else {
+        setTextReplies([]);
+      }
     } catch (error) {
-      console.error("Error fetching texts log:", error);
+      console.error("Error fetching texts / text replies:", error);
       setTextsLog([]);
+      setTextReplies([]);
     } finally {
       setTextsLoading(false);
     }
@@ -2814,6 +2833,22 @@ export default function AdminPage() {
                 <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">?secret=YOUR_SECRET</code> to the URL or the
                 request will return 401.
               </p>
+              <p className="text-xs text-gray-600 mb-3">
+                <span className="font-medium text-gray-800">SMS reply webhook (POST):</span>{" "}
+                {siteOrigin ? (
+                  <code className="block mt-1 rounded bg-gray-100 px-2 py-1.5 font-mono text-[11px] break-all">
+                    {siteOrigin}/api/sms/text-reply
+                  </code>
+                ) : (
+                  <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">/api/sms/text-reply</code>
+                )}{" "}
+                — JSON or form body with <code className="font-mono">textID</code>,{" "}
+                <code className="font-mono">fromNumber</code>, <code className="font-mono">text</code>. Rows are stored
+                in Redis as <code className="font-mono">textReplys</code>. Set{" "}
+                <code className="font-mono">TEXT_REPLY_WEBHOOK_SECRET</code> on the server to require{" "}
+                <code className="font-mono">?secret=…</code> (pickup reminders register this URL automatically when a
+                public base URL is configured).
+              </p>
               <div className="flex flex-wrap gap-2">
                 <a
                   href="/api/cron/send-pickup-reminders"
@@ -2821,7 +2856,7 @@ export default function AdminPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors font-medium text-sm sm:text-base"
                 >
-                  Open pickup reminders (new tab)
+                  SEND TEXTS
                 </a>
                 <button
                   type="button"
@@ -2910,6 +2945,47 @@ export default function AdminPage() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Text replies (TextReplys)</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Inbound SMS replies received at the webhook above. Newest first.
+              </p>
+              {!textsLoading && textReplies.length === 0 && (
+                <p className="text-sm text-gray-600">No replies stored yet.</p>
+              )}
+              {!textsLoading && textReplies.length > 0 && (
+                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-3 py-2">Time</th>
+                        <th className="px-3 py-2">Text ID</th>
+                        <th className="px-3 py-2">From</th>
+                        <th className="px-3 py-2">Message</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {textReplies.map((r) => (
+                        <tr key={r.id} className="align-top">
+                          <td className="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">
+                            {new Date(r.createdAt).toLocaleString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-800">{r.textId}</td>
+                          <td className="px-3 py-2 text-gray-800 whitespace-nowrap">{r.fromNumber}</td>
+                          <td className="px-3 py-2 text-gray-800 whitespace-pre-wrap max-w-md">{r.text}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>

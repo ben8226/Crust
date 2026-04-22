@@ -54,11 +54,8 @@ export async function GET(request: Request) {
 
     const pickupAddress = (process.env.NEXT_PUBLIC_PICKUP_ADDRESS || "").trim();
     const storeName = "Crust + Culture";
-    // Used to build absolute URLs that work in SMS clients.
-    // NEXT_PUBLIC_BASE_URL should be set in production (e.g., https://yourdomain.com).
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+    // replyWebhookUrl is added automatically in sendSms (Textbelt POST) when TEXT_REPLY_WEBHOOK_URL
+    // or NEXT_PUBLIC_BASE_URL / NEXT_PUBLIC_SITE_URL / VERCEL_URL is configured — see lib/sms.ts.
 
     const results: { orderId: string; success: boolean; textsRemaining?: number; error?: string }[] = [];
 
