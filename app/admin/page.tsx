@@ -25,7 +25,7 @@ const PICKUP_TIME_OPTIONS: string[] = (() => {
   return options;
 })();
 
-type Tab = "orders" | "products" | "calendar" | "gallery" | "updates" | "customers";
+type Tab = "orders" | "products" | "calendar" | "gallery" | "texts" | "updates" | "customers";
 
 function PickupWindowDateModal({
   date,
@@ -1184,6 +1184,16 @@ export default function AdminPage() {
                     }`}
                   >
                     Gallery
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("texts")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "texts"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Texts
                   </button>
                   <Link
                     href="/admin/analytics"
@@ -2763,6 +2773,30 @@ export default function AdminPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* Texts Tab */}
+        {activeTab === "texts" && (
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Texts</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Manually trigger the pickup reminder SMS job. Opens the API route in a new tab; the response is JSON
+              (sent counts, errors, etc.).
+            </p>
+            <p className="text-xs text-gray-500 mb-4">
+              If <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">CRON_SECRET</code> is set, append{" "}
+              <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">?secret=YOUR_SECRET</code> to the URL or the
+              request will return 401.
+            </p>
+            <a
+              href="/api/cron/send-pickup-reminders"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors font-medium text-sm sm:text-base"
+            >
+              Open pickup reminders (new tab)
+            </a>
+          </div>
         )}
 
         {/* Updates Tab */}
