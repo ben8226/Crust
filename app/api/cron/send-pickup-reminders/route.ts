@@ -54,7 +54,6 @@ export async function GET(request: Request) {
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-    const myAccountUrl = baseUrl ? `${baseUrl.replace(/\/$/, "")}/my-account` : "";
 
     const results: { orderId: string; success: boolean; error?: string }[] = [];
 
@@ -66,9 +65,7 @@ export async function GET(request: Request) {
         message += ` Address: ${pickupAddress}`;
       }
       message += "\n\nReply STOP to opt-out.";
-      if (myAccountUrl) {
-        message += `\n\nMy account: ${myAccountUrl}`;
-      }
+
 
       const result = await sendSms(order.phone, message, {
         sender: storeName,
