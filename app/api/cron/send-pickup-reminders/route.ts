@@ -80,7 +80,7 @@ export async function GET(request: Request) {
         await updateOrder(order.id, {
           reminderSentAt: new Date().toISOString(),
         });
-        results.push({ orderId: order.id, success: true });
+        results.push({ orderId: order.id, textsRemaining: result.quotaRemaining, success: true });
       } else {
         results.push({
           orderId: order.id,
