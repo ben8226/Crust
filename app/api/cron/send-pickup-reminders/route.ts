@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { appendTextsEntry, getOrders, updateOrder } from "@/lib/db";
 import { sendSms } from "@/lib/sms";
-import type { PickupReminderCronResult, TextLogEntry } from "@/types/texts";
+import type {
+  PickupReminderCronOrderResult,
+  PickupReminderCronResult,
+  TextLogEntry,
+} from "@/types/texts";
 
 function newTextLogId(): string {
   return `TEXT-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -57,7 +61,7 @@ export async function GET(request: Request) {
     // replyWebhookUrl is added automatically in sendSms (Textbelt POST) when TEXT_REPLY_WEBHOOK_URL
     // or NEXT_PUBLIC_BASE_URL / NEXT_PUBLIC_SITE_URL / VERCEL_URL is configured — see lib/sms.ts.
 
-    const results: { orderId: string; success: boolean; textsRemaining?: number; error?: string }[] = [];
+    const results: PickupReminderCronOrderResult[] = [];
 
     for (const order of toRemind) {
       const time = order.pickupTime || "your scheduled time";
@@ -77,13 +81,20 @@ export async function GET(request: Request) {
         await updateOrder(order.id, {
           reminderSentAt: new Date().toISOString(),
         });
-        results.push({ orderId: order.id, textsRemaining: result.quotaRemaining, success: true });
+        results.push({
+          orderId: order.id,
+          success: true,
+          textsRemaining: result.quotaRemaining,
+          textId: result.textId,
+          textbeltRequest: result.textbeltRequest,
+        });
       } else {
         results.push({
           orderId: order.id,
           success: false,
           textsRemaining: result.quotaRemaining,
           error: result.error,
+          textbeltRequest: result.textbeltRequest,
         });
       }
 

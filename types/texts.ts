@@ -2,11 +2,22 @@
 
 export type TextLogSource = "pickup-reminders-cron";
 
+/** One order row in the pickup-reminders cron JSON (includes Textbelt POST body, key redacted). */
+export interface PickupReminderCronOrderResult {
+  orderId: string;
+  success: boolean;
+  error?: string;
+  textsRemaining?: number;
+  textId?: number;
+  /** Fields sent as JSON to `https://textbelt.com/text` (API key redacted). */
+  textbeltRequest?: Record<string, string>;
+}
+
 export interface PickupReminderCronResult {
   date: string;
   sent: number;
   failed: number;
-  results: { orderId: string; success: boolean; error?: string; textsRemaining?: number }[];
+  results: PickupReminderCronOrderResult[];
 }
 
 export interface TextLogEntry {

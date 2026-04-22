@@ -20,6 +20,28 @@ export function getTextbeltReplyWebhookUrl(): string | undefined {
   return `${baseUrl.replace(/\/$/, "")}${replyPath}`;
 }
 
+function redactWebhookSecretInUrl(url: string): string {
+  return url.replace(/([?&]secret=)[^&]+/gi, "$1[redacted]");
+}
+
+/** JSON sent to `https://textbelt.com/text` with `key` redacted (for logs / cron responses). */
+export function sanitizeTextbeltRequestBody(body: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = { ...body, key: "[redacted]" };
+  if (out.replyWebhookUrl) {
+    out.replyWebhookUrl = redactWebhookSecretInUrl(out.replyWebhookUrl);
+  }
+  return out;
+}
+
+export type SendSmsResult = {
+  success: boolean;
+  textId?: number;
+  error?: string;
+  quotaRemaining?: number;
+  /** Same fields as the JSON POST to Textbelt, with `key` and webhook `secret` redacted */
+  textbeltRequest?: Record<string, string>;
+};
+
 /**
  * Send SMS via Textbelt API.
  * Uses TEXTBELT_API_KEY from environment.
@@ -29,29 +51,53 @@ export async function sendSms(
   phone: string,
   message: string,
   options?: { sender?: string; replyWebhookUrl?: string }
-): Promise<{ success: boolean; textId?: number; error?: string; quotaRemaining?: number }> {
+): Promise<SendSmsResult> {
   const apiKey = process.env.TEXTBELT_API_KEY;
   if (!apiKey) {
     console.warn("TEXTBELT_API_KEY not configured. Skipping SMS.");
-    return { success: false, error: "TEXTBELT_API_KEY not configured" };
+    return {
+      success: false,
+      error: "TEXTBELT_API_KEY not configured",
+      textbeltRequest: {
+        phone: "(not sent)",
+        message,
+        key: "[not configured]",
+      },
+    };
   }
 
-  // Normalize phone: strip to digits, ensure 10-digit US format
   let digits = (phone || "").replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
-  if (digits.length !== 10) {
-    return { success: false, error: "Invalid US phone number" };
-  }
 
-  const replyWebhookUrl = process.env.NEXT_PUBLIC_BASE_URL + "/api/sms/text-reply";
+  const replyWebhookUrl =
+    options?.replyWebhookUrl !== undefined
+      ? options.replyWebhookUrl.trim() || undefined
+      : getTextbeltReplyWebhookUrl();
+
+  if (digits.length !== 10) {
+    const body: Record<string, string> = {
+      phone: digits || "(invalid)",
+      message,
+      key: apiKey,
+    };
+    if (options?.sender) body.sender = options.sender;
+    if (replyWebhookUrl) body.replyWebhookUrl = replyWebhookUrl;
+    return {
+      success: false,
+      error: "Invalid US phone number",
+      textbeltRequest: sanitizeTextbeltRequestBody(body),
+    };
+  }
 
   const body: Record<string, string> = {
     phone: digits,
     message,
-    replyWebhookUrl,
     key: apiKey,
   };
   if (options?.sender) body.sender = options.sender;
+  if (replyWebhookUrl) body.replyWebhookUrl = replyWebhookUrl;
+
+  const textbeltRequest = sanitizeTextbeltRequestBody(body);
 
   try {
     const res = await fetch("https://textbelt.com/text", {
@@ -70,12 +116,14 @@ export async function sendSms(
       textId: data.textId,
       error: data.error,
       quotaRemaining: data.quotaRemaining,
+      textbeltRequest,
     };
   } catch (err) {
     console.error("Textbelt SMS error:", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to send SMS",
+      textbeltRequest,
     };
   }
 }

@@ -2920,11 +2920,12 @@ export default function AdminPage() {
                                     <th className="text-left px-2 py-1 font-medium text-gray-600">Order</th>
                                     <th className="text-left px-2 py-1 font-medium text-gray-600">Status</th>
                                     <th className="text-left px-2 py-1 font-medium text-gray-600">Note</th>
+                                    <th className="text-left px-2 py-1 font-medium text-gray-600">Textbelt POST</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {entry.result.results.map((r) => (
-                                    <tr key={r.orderId} className="border-t border-gray-100">
+                                    <tr key={r.orderId} className="border-t border-gray-100 align-top">
                                       <td className="px-2 py-1 font-mono">{r.orderId}</td>
                                       <td className="px-2 py-1">
                                         {r.success ? (
@@ -2933,7 +2934,24 @@ export default function AdminPage() {
                                           <span className="text-red-700">Fail</span>
                                         )}
                                       </td>
-                                      <td className="px-2 py-1 text-gray-600">{r.error || "—"}</td>
+                                      <td className="px-2 py-1 text-gray-600">
+                                        {r.textId != null && (
+                                          <span className="block text-gray-500">textId {r.textId}</span>
+                                        )}
+                                        {r.error || (r.success ? "—" : "")}
+                                      </td>
+                                      <td className="px-2 py-1 text-gray-600 max-w-xs">
+                                        {r.textbeltRequest ? (
+                                          <details className="cursor-pointer">
+                                            <summary className="text-brown-700 hover:underline">JSON body</summary>
+                                            <pre className="mt-1 p-2 bg-gray-50 rounded text-[10px] whitespace-pre-wrap break-all max-h-48 overflow-y-auto">
+                                              {JSON.stringify(r.textbeltRequest, null, 2)}
+                                            </pre>
+                                          </details>
+                                        ) : (
+                                          "—"
+                                        )}
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>
