@@ -46,6 +46,8 @@ export async function PATCH(
     if (body.loafType !== undefined) updates.loafType = body.loafType;
     if (body.allergens !== undefined) updates.allergens = body.allergens;
     if (body.limitedTime !== undefined) updates.limitedTime = body.limitedTime;
+    if (body.newProduct !== undefined) updates.newProduct = body.newProduct;
+    if (body.bakersFavorite !== undefined) updates.bakersFavorite = body.bakersFavorite;
     if (body.hiddenFromMenu !== undefined) updates.hiddenFromMenu = body.hiddenFromMenu;
     if (body.includeInSampleBoxes !== undefined) updates.includeInSampleBoxes = body.includeInSampleBoxes;
 

@@ -218,6 +218,8 @@ export default function AdminPage() {
       sesame: false,
     },
     limitedTime: false,
+    newProduct: false,
+    bakersFavorite: false,
     hiddenFromMenu: false,
     includeInSampleBoxes: false,
   });
@@ -603,6 +605,8 @@ export default function AdminPage() {
           loafType: editingProduct.loafType,
           allergens: editingProduct.allergens,
           limitedTime: editingProduct.limitedTime,
+          newProduct: editingProduct.newProduct,
+          bakersFavorite: editingProduct.bakersFavorite,
           hiddenFromMenu: editingProduct.hiddenFromMenu ?? false,
           includeInSampleBoxes:
             editingProduct.hiddenFromMenu ? (editingProduct.includeInSampleBoxes ?? false) : false,
@@ -654,6 +658,8 @@ export default function AdminPage() {
           allergens:
             newProduct.allergens || { wheat: false, dairy: false, milk: false, egg: false, sesame: false },
           limitedTime: newProduct.limitedTime ?? false,
+          newProduct: newProduct.newProduct ?? false,
+          bakersFavorite: newProduct.bakersFavorite ?? false,
           hiddenFromMenu: newProduct.hiddenFromMenu ?? false,
           includeInSampleBoxes:
             newProduct.hiddenFromMenu ? (newProduct.includeInSampleBoxes ?? false) : false,
@@ -674,6 +680,8 @@ export default function AdminPage() {
           inStock: true,
           loafType: undefined,
           limitedTime: false,
+          newProduct: false,
+          bakersFavorite: false,
           hiddenFromMenu: false,
           includeInSampleBoxes: false,
         });
@@ -1796,6 +1804,38 @@ export default function AdminPage() {
                           <label className="flex items-center gap-2">
                             <input
                               type="checkbox"
+                              checked={newProduct.newProduct ?? false}
+                              onChange={(e) =>
+                                setNewProduct({
+                                  ...newProduct,
+                                  newProduct: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              New product
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={newProduct.bakersFavorite ?? false}
+                              onChange={(e) =>
+                                setNewProduct({
+                                  ...newProduct,
+                                  bakersFavorite: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              Baker&apos;s favorite
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
                               checked={newProduct.hiddenFromMenu ?? false}
                               onChange={(e) =>
                                 setNewProduct({
@@ -1946,6 +1986,10 @@ export default function AdminPage() {
                               loafType: undefined,
                               allergens: { wheat: false, dairy: false, milk: false, egg: false, sesame: false },
                               limitedTime: false,
+                              newProduct: false,
+                              bakersFavorite: false,
+                              hiddenFromMenu: false,
+                              includeInSampleBoxes: false,
                             });
                           }}
                           className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
@@ -2112,6 +2156,38 @@ export default function AdminPage() {
                               />
                               <span className="text-sm font-medium text-gray-700">
                                 Limited time product
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={editingProduct.newProduct ?? false}
+                                onChange={(e) =>
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    newProduct: e.target.checked,
+                                  })
+                                }
+                                className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm font-medium text-gray-700">
+                                New product
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={editingProduct.bakersFavorite ?? false}
+                                onChange={(e) =>
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    bakersFavorite: e.target.checked,
+                                  })
+                                }
+                                className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm font-medium text-gray-700">
+                                Baker&apos;s favorite
                               </span>
                             </label>
                             <label className="flex items-center gap-2">

@@ -7,6 +7,8 @@ export interface Product {
   category: string;
   inStock: boolean;
   limitedTime?: boolean;
+  newProduct?: boolean;
+  bakersFavorite?: boolean;
   hiddenFromMenu?: boolean;
   includeInSampleBoxes?: boolean; // Allow hidden products to still be selectable in sample boxes
   ingredients?: string; // Optional ingredients list

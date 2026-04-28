@@ -47,6 +47,26 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
     }
   };
 
+  const topLeftBadges: { label: string; className: string }[] = [];
+  if (product.limitedTime) {
+    topLeftBadges.push({
+      label: "Limited Time",
+      className: "bg-blue-600 text-white",
+    });
+  }
+  if (product.newProduct) {
+    topLeftBadges.push({
+      label: "New Product",
+      className: "bg-emerald-600 text-white",
+    });
+  }
+  if (product.bakersFavorite) {
+    topLeftBadges.push({
+      label: "Baker's Favorite",
+      className: "bg-amber-500 text-gray-900",
+    });
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
       {/* Product art is 6400×8400 (width × height) → aspect width/height = 6400/8400 = 16/21 */}
@@ -58,9 +78,16 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
           className="object-cover object-center"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
-        {product.limitedTime && (
-          <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold shadow-md">
-            Limited Time
+        {topLeftBadges.length > 0 && (
+          <div className="absolute top-2 left-2 flex flex-col gap-1">
+            {topLeftBadges.map((badge) => (
+              <div
+                key={badge.label}
+                className={`${badge.className} px-2 py-1 rounded text-xs font-semibold shadow-md`}
+              >
+                {badge.label}
+              </div>
+            ))}
           </div>
         )}
         {!product.inStock && (
