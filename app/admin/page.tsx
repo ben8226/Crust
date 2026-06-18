@@ -6,9 +6,8 @@ import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
-import type { TextReplyEntry } from "@/types/text-reply";
-import type { TextLogEntry } from "@/types/texts";
 import { UpdateEntry } from "@/types/update";
+import { TEXTING_MESSAGE_SETTING_LABEL, TEXTS_REMAINING_SETTING_LABEL } from "@/types/settings";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
 import { formatDateInput, formatPickupDisplay, parseLocalDateString } from "@/lib/date";
@@ -177,7 +176,7 @@ export default function AdminPage() {
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pending" | "completed" | "cancelled">("pending");
+  const [filter, setFilter] = useState<"all" | "pending" | "completed" | "cancelled" | "today" | "tomorrow">("pending");
   const [updatingOrders, setUpdatingOrders] = useState<Set<string>>(new Set());
   const [deletingOrders, setDeletingOrders] = useState<Set<string>>(new Set());
 
@@ -246,11 +245,12 @@ export default function AdminPage() {
   });
   const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
 
-  // Texts tab (pickup reminder cron log)
-  const [textsLog, setTextsLog] = useState<TextLogEntry[]>([]);
-  const [textReplies, setTextReplies] = useState<TextReplyEntry[]>([]);
-  const [textsLoading, setTextsLoading] = useState(false);
-  const [siteOrigin, setSiteOrigin] = useState("");
+  // Texts tab (SMS template)
+  const [textTemplate, setTextTemplate] = useState("");
+  const [textsRemaining, setTextsRemaining] = useState<string | null>(null);
+  const [textTemplateLoading, setTextTemplateLoading] = useState(false);
+  const [textTemplateSaving, setTextTemplateSaving] = useState(false);
+  const [textTemplateTesting, setTextTemplateTesting] = useState(false);
 
   // Customers state (derived from orders, keyed by phone)
   const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(null);
@@ -313,19 +313,13 @@ export default function AdminPage() {
     } else if (activeTab === "gallery") {
       fetchGalleryImages();
     } else if (activeTab === "texts") {
-      fetchTexts();
+      fetchTextTemplate();
     } else if (activeTab === "updates") {
       fetchUpdates();
     } else if (activeTab === "customers") {
       fetchOrders();
     }
   }, [activeTab]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setSiteOrigin(window.location.origin);
-    }
-  }, []);
 
   // Orders functions
   const fetchOrders = async () => {
@@ -819,7 +813,83 @@ export default function AdminPage() {
     }
   };
 
-  // Get effective window for a date: date-specific override or weekday default
+  const fetchTextTemplate = async () => {
+    try {
+      setTextTemplateLoading(true);
+      const [templateRes, remainingRes] = await Promise.all([
+        fetch(`/api/settings?label=${encodeURIComponent(TEXTING_MESSAGE_SETTING_LABEL)}`),
+        fetch(`/api/settings?label=${encodeURIComponent(TEXTS_REMAINING_SETTING_LABEL)}`),
+      ]);
+      if (templateRes.ok) {
+        const setting = await templateRes.json();
+        setTextTemplate(setting?.value || "");
+      }
+      if (remainingRes.ok) {
+        const setting = await remainingRes.json();
+        setTextsRemaining(setting?.value ?? null);
+      }
+    } catch (error) {
+      console.error("Error fetching text template:", error);
+    } finally {
+      setTextTemplateLoading(false);
+    }
+  };
+
+  const handleSaveTextTemplate = async () => {
+    try {
+      setTextTemplateSaving(true);
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: TEXTING_MESSAGE_SETTING_LABEL,
+          value: textTemplate,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        alert(error?.error || "Failed to save text template");
+        return;
+      }
+      await fetchTextTemplate();
+    } catch (error) {
+      console.error("Error saving text template:", error);
+      alert("Error saving text template. Please try again.");
+    } finally {
+      setTextTemplateSaving(false);
+    }
+  };
+
+  const handleTestTextTemplate = async () => {
+    if (!textTemplate.trim()) {
+      alert("Enter a text template before sending a test.");
+      return;
+    }
+
+    try {
+      setTextTemplateTesting(true);
+      const response = await fetch("/api/admin/test-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: textTemplate }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        alert(data?.error || "Failed to send test text");
+        return;
+      }
+      if (data?.quotaRemaining !== undefined) {
+        setTextsRemaining(String(data.quotaRemaining));
+      }
+      alert("Test text sent to admin phone.");
+    } catch (error) {
+      console.error("Error sending test text:", error);
+      alert("Error sending test text. Please try again.");
+    } finally {
+      setTextTemplateTesting(false);
+    }
+  };
+
   const getEffectiveWindowForDate = (date: Date) => {
     const dateStr = formatDateInput(date);
     const override = pickupWindowDates[dateStr];
@@ -975,34 +1045,6 @@ export default function AdminPage() {
     }
   };
 
-  const fetchTexts = async () => {
-    try {
-      setTextsLoading(true);
-      const [textsRes, repliesRes] = await Promise.all([
-        fetch("/api/texts"),
-        fetch("/api/text-replies"),
-      ]);
-      if (textsRes.ok) {
-        const data: TextLogEntry[] = await textsRes.json();
-        setTextsLog(data);
-      } else {
-        setTextsLog([]);
-      }
-      if (repliesRes.ok) {
-        const replies: TextReplyEntry[] = await repliesRes.json();
-        setTextReplies(replies);
-      } else {
-        setTextReplies([]);
-      }
-    } catch (error) {
-      console.error("Error fetching texts / text replies:", error);
-      setTextsLog([]);
-      setTextReplies([]);
-    } finally {
-      setTextsLoading(false);
-    }
-  };
-
   const handleAddGalleryImage = async () => {
     if (!newImage.url) {
       alert("Please provide an image URL");
@@ -1073,16 +1115,25 @@ export default function AdminPage() {
     }
   };
 
+  const todayPickupDate = formatDateInput(new Date());
+  const tomorrowPickupDate = formatDateInput(
+    new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 1)
+  );
+
   const filteredOrders = orders.filter((order) => {
     if (filter === "pending") return !order.completed && !order.cancelled;
     if (filter === "completed") return order.completed && !order.cancelled;
     if (filter === "cancelled") return order.cancelled;
+    if (filter === "today") return order.pickupDate === todayPickupDate;
+    if (filter === "tomorrow") return order.pickupDate === tomorrowPickupDate;
     return true;
   });
 
   const pendingCount = orders.filter((o) => !o.completed && !o.cancelled).length;
   const completedCount = orders.filter((o) => o.completed && !o.cancelled).length;
   const cancelledCount = orders.filter((o) => o.cancelled).length;
+  const todayCount = orders.filter((o) => o.pickupDate === todayPickupDate).length;
+  const tomorrowCount = orders.filter((o) => o.pickupDate === tomorrowPickupDate).length;
 
   // Normalize phone for customer key (digits only; US 11-digit → 10)
   const normalizePhoneKey = (phone: string) => {
@@ -1302,7 +1353,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Filter Buttons */}
-                <div className="mb-6 flex gap-2">
+                <div className="mb-6 flex flex-wrap gap-2">
                   <button
                     onClick={() => setFilter("all")}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -1342,6 +1393,26 @@ export default function AdminPage() {
                     }`}
                   >
                     Cancelled ({cancelledCount})
+                  </button>
+                  <button
+                    onClick={() => setFilter("today")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      filter === "today"
+                        ? "bg-brown-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Today ({todayCount})
+                  </button>
+                  <button
+                    onClick={() => setFilter("tomorrow")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      filter === "tomorrow"
+                        ? "bg-brown-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Tomorrow ({tomorrowCount})
                   </button>
                 </div>
 
@@ -1458,6 +1529,20 @@ export default function AdminPage() {
                               <p className="text-gray-900">{order.heardAboutUs}</p>
                             </div>
                           )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">Text sent</p>
+                            <p className="text-gray-900">
+                              {order.reminderSentAt
+                                ? new Date(order.reminderSentAt).toLocaleString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "No"}
+                            </p>
+                          </div>
                         </div>
 
                         <div className="border-t pt-4">
@@ -2897,171 +2982,64 @@ export default function AdminPage() {
 
         {/* Texts Tab */}
         {activeTab === "texts" && (
-          <div className="space-y-6 max-w-4xl">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Texts</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                Manually trigger the pickup reminder SMS job. Opens the API route in a new tab; the response is JSON
-                (sent counts, errors, etc.). Each run is appended to the Texts log in Redis.
+          <div className="max-w-4xl">
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <p className="text-sm font-medium text-gray-600">Texts remaining</p>
+              <p className="text-5xl font-bold text-gray-900 mt-1">
+                {textTemplateLoading ? "…" : textsRemaining ?? "—"}
               </p>
-              <p className="text-xs text-gray-500 mb-4">
-                If <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">CRON_SECRET</code> is set, append{" "}
-                <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">?secret=YOUR_SECRET</code> to the URL or the
-                request will return 401.
-              </p>
-              <p className="text-xs text-gray-600 mb-3">
-                <span className="font-medium text-gray-800">SMS reply webhook (POST):</span>{" "}
-                {siteOrigin ? (
-                  <code className="block mt-1 rounded bg-gray-100 px-2 py-1.5 font-mono text-[11px] break-all">
-                    {siteOrigin}/api/sms/text-reply
-                  </code>
-                ) : (
-                  <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">/api/sms/text-reply</code>
-                )}{" "}
-                — JSON or form body with <code className="font-mono">textID</code>,{" "}
-                <code className="font-mono">fromNumber</code>, <code className="font-mono">text</code>. Rows are stored
-                in Redis as <code className="font-mono">textReplys</code>. Set{" "}
-                <code className="font-mono">TEXT_REPLY_WEBHOOK_SECRET</code> on the server to require{" "}
-                <code className="font-mono">?secret=…</code> (pickup reminders register this URL automatically when a
-                public base URL is configured).
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <a
-                  href="/api/cron/send-pickup-reminders"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors font-medium text-sm sm:text-base"
-                >
-                  SEND TEXTS
-                </a>
-                <button
-                  type="button"
-                  onClick={() => fetchTexts()}
-                  disabled={textsLoading}
-                  className="inline-flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm sm:text-base disabled:opacity-50"
-                >
-                  {textsLoading ? "Refreshing…" : "Refresh history"}
-                </button>
-              </div>
             </div>
-
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Texts history</h3>
-              {textsLoading && <p className="text-sm text-gray-600">Loading history…</p>}
-              {!textsLoading && textsLog.length === 0 && (
-                <p className="text-sm text-gray-600">No runs logged yet. Trigger the cron job above, then refresh.</p>
-              )}
-              {!textsLoading && textsLog.length > 0 && (
-                <ul className="space-y-4">
-                  {textsLog.map((entry) => (
-                    <li
-                      key={entry.id}
-                      className="border border-gray-200 rounded-lg p-4 text-sm"
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Text Template</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Message sent to customers via SMS. Use {"{time}"} and {"{address}"} for pickup time and address.
+              </p>
+              {textTemplateLoading ? (
+                <p className="text-sm text-gray-600">Loading template...</p>
+              ) : (
+                <>
+                  <label htmlFor="text-template" className="block text-sm font-medium text-gray-700 mb-1">
+                    Template
+                  </label>
+                  <textarea
+                    id="text-template"
+                    value={textTemplate}
+                    onChange={(e) => setTextTemplate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={8}
+                    placeholder="Enter the SMS message template..."
+                  />
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={handleSaveTextTemplate}
+                      disabled={textTemplateSaving || textTemplateTesting}
+                      className="bg-brown-600 text-white px-4 py-2 rounded-lg hover:bg-brown-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <div className="flex flex-wrap justify-between gap-2 mb-2">
-                        <span className="font-medium text-gray-900">
-                          {entry.source === "pickup-reminders-cron"
-                            ? "Pickup reminder SMS"
-                            : entry.source}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(entry.createdAt).toLocaleString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mb-2 font-mono">ID: {entry.id}</p>
-                      {entry.error && (
-                        <p className="text-red-700 font-medium whitespace-pre-wrap">{entry.error}</p>
-                      )}
-                      {entry.result && (
-                        <div className="space-y-2 text-gray-800">
-                          <p>
-                            <span className="text-gray-600">Pickup day (cron):</span> {entry.result.date}
-                          </p>
-                          <p>
-                            <span className="text-gray-600">Sent:</span> {entry.result.sent} ·{" "}
-                            <span className="text-gray-600">Failed:</span> {entry.result.failed}
-                          </p>
-                          {entry.result.results.length > 0 && (
-                            <div className="mt-2 overflow-x-auto">
-                              <table className="min-w-full text-xs border border-gray-200 rounded">
-                                <thead className="bg-gray-50">
-                                  <tr>
-                                    <th className="text-left px-2 py-1 font-medium text-gray-600">Order</th>
-                                    <th className="text-left px-2 py-1 font-medium text-gray-600">Status</th>
-                                    <th className="text-left px-2 py-1 font-medium text-gray-600">Note</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {entry.result.results.map((r) => (
-                                    <tr key={r.orderId} className="border-t border-gray-100">
-                                      <td className="px-2 py-1 font-mono">{r.orderId}</td>
-                                      <td className="px-2 py-1">
-                                        {r.success ? (
-                                          <span className="text-green-700">OK</span>
-                                        ) : (
-                                          <span className="text-red-700">Fail</span>
-                                        )}
-                                      </td>
-                                      <td className="px-2 py-1 text-gray-600">{r.error || "—"}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Text replies (TextReplys)</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Inbound SMS replies received at the webhook above. Newest first.
-              </p>
-              {!textsLoading && textReplies.length === 0 && (
-                <p className="text-sm text-gray-600">No replies stored yet.</p>
-              )}
-              {!textsLoading && textReplies.length > 0 && (
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      <tr>
-                        <th className="px-3 py-2">Time</th>
-                        <th className="px-3 py-2">Text ID</th>
-                        <th className="px-3 py-2">From</th>
-                        <th className="px-3 py-2">Message</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {textReplies.map((r) => (
-                        <tr key={r.id} className="align-top">
-                          <td className="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">
-                            {new Date(r.createdAt).toLocaleString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-800">{r.textId}</td>
-                          <td className="px-3 py-2 text-gray-800 whitespace-nowrap">{r.fromNumber}</td>
-                          <td className="px-3 py-2 text-gray-800 whitespace-pre-wrap max-w-md">{r.text}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      {textTemplateSaving ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={handleTestTextTemplate}
+                      disabled={textTemplateTesting || textTemplateSaving}
+                      className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {textTemplateTesting ? "Sending..." : "Test Text"}
+                    </button>
+                  </div>
+                  <div className="mt-3">
+                    <a
+                      href="/api/cron/send-pickup-reminders"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Test Cron Job
+                    </a>
+                  </div>
+                </>
               )}
             </div>
           </div>
