@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { appendTextsEntry, getOrders, updateOrder } from "@/lib/db";
+import { appendTextsEntry, getOrders, getSettingByLabel, updateOrder, upsertSetting } from "@/lib/db";
 import { sendSms } from "@/lib/sms";
+import { renderTextTemplate, TEXT_TEMPLATE_EXAMPLE_TIME } from "@/lib/text-template";
+import { TEXTING_MESSAGE_SETTING_LABEL, TEXTS_REMAINING_SETTING_LABEL } from "@/types/settings";
 import type { PickupReminderCronResult, TextLogEntry } from "@/types/texts";
 
 function newTextLogId(): string {
@@ -54,21 +56,20 @@ export async function GET(request: Request) {
 
     const pickupAddress = (process.env.NEXT_PUBLIC_PICKUP_ADDRESS || "").trim();
     const storeName = "Crust + Culture";
-    // replyWebhookUrl is added automatically in sendSms (Textbelt POST) when TEXT_REPLY_WEBHOOK_URL
-    // or NEXT_PUBLIC_BASE_URL / NEXT_PUBLIC_SITE_URL / VERCEL_URL is configured — see lib/sms.ts.
+    const templateSetting = await getSettingByLabel(TEXTING_MESSAGE_SETTING_LABEL);
+    const messageTemplate = templateSetting?.value?.trim() || "";
 
     const results: { orderId: string; success: boolean; textsRemaining?: number; error?: string }[] = [];
 
     for (const order of toRemind) {
       const time = order.pickupTime || "your scheduled time";
-      let message = ` ${storeName} reminder: \n\n Your order is ready for pickup today at ${time} \n\n `;
-      //let message = `${storeName} order is ready for pickup today at ${time}.`;
-      if (pickupAddress) {
-        message += ` Address: ${pickupAddress}`;
-      }
-      message += "\n\nReply STOP to opt-out.";
+      let message =
+        messageTemplate ||
+        `Crust + Culture reminder:\n\nYour order is ready for pickup today at ${time}${
+          pickupAddress ? `\n\nAddress: ${pickupAddress}` : ""
+        }\n\nReply STOP to opt-out.`;
 
-
+      message = renderTextTemplate(message, { time, address: pickupAddress });
       const result = await sendSms(order.phone, message, {
         sender: storeName,
       });
@@ -89,6 +90,13 @@ export async function GET(request: Request) {
 
       // Rate limit: Textbelt recommends 1-2 SMS per second
       await new Promise((r) => setTimeout(r, 600));
+    }
+
+    const lastTextsRemaining = [...results]
+      .reverse()
+      .find((r) => r.textsRemaining !== undefined)?.textsRemaining;
+    if (lastTextsRemaining !== undefined) {
+      await upsertSetting(TEXTS_REMAINING_SETTING_LABEL, String(lastTextsRemaining));
     }
 
     const payload: PickupReminderCronResult = {

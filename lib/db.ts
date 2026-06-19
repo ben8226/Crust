@@ -2,6 +2,10 @@ import { Product, Order } from "@/types/product";
 import type { TextReplyEntry } from "@/types/text-reply";
 import type { TextLogEntry } from "@/types/texts";
 import { UpdateEntry } from "@/types/update";
+import type { SettingEntry } from "@/types/settings";
+
+/** Redis key for app settings ("Settings" table). */
+const SETTINGS_REDIS_KEY = "settings";
 
 /** Redis key for SMS / cron run logs ("Texts" table). */
 const TEXTS_REDIS_KEY = "texts";
@@ -804,6 +808,78 @@ export async function appendTextsEntry(entry: TextLogEntry): Promise<void> {
     console.log(`✓ Texts log entry ${entry.id} saved (${next.length} rows)`);
   } catch (error) {
     console.error("Error appending texts entry to Redis:", error);
+    throw error;
+  }
+}
+
+function generateSettingId() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let id = "";
+  for (let i = 0; i < 8; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
+}
+
+/** Read all rows from the Settings collection. */
+export async function getSettings(): Promise<SettingEntry[]> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.warn("Redis not available, returning empty settings");
+      return [];
+    }
+    const data = await redis.get<SettingEntry[]>(SETTINGS_REDIS_KEY);
+    return data || [];
+  } catch (error) {
+    console.error("Error reading settings from Redis:", error);
+    return [];
+  }
+}
+
+/** Read one setting by label. */
+export async function getSettingByLabel(label: string): Promise<SettingEntry | null> {
+  const settings = await getSettings();
+  return settings.find((s) => s.label === label) || null;
+}
+
+/** Create or update a setting by label. */
+export async function upsertSetting(label: string, value: string): Promise<SettingEntry> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.error("✗ Upstash Redis not configured. Setting not persisted.");
+      throw new Error("Redis not configured");
+    }
+
+    const settings = await getSettings();
+    const now = new Date().toISOString();
+    const existingIndex = settings.findIndex((s) => s.label === label);
+
+    if (existingIndex >= 0) {
+      const updated: SettingEntry = {
+        ...settings[existingIndex],
+        value,
+        updatedAt: now,
+      };
+      settings[existingIndex] = updated;
+      await redis.set(SETTINGS_REDIS_KEY, settings);
+      console.log(`✓ Setting "${label}" updated`);
+      return updated;
+    }
+
+    const created: SettingEntry = {
+      id: generateSettingId(),
+      label,
+      value,
+      updatedAt: now,
+    };
+    settings.push(created);
+    await redis.set(SETTINGS_REDIS_KEY, settings);
+    console.log(`✓ Setting "${label}" created`);
+    return created;
+  } catch (error) {
+    console.error("Error upserting setting:", error);
     throw error;
   }
 }
