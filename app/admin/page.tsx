@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
 import { UpdateEntry } from "@/types/update";
 import { TEXTING_MESSAGE_SETTING_LABEL, TEXTS_REMAINING_SETTING_LABEL } from "@/types/settings";
+import type { TextReplyEntry } from "@/types/text-reply";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
 import { formatDateInput, formatPickupDisplay, parseLocalDateString } from "@/lib/date";
@@ -252,6 +253,9 @@ export default function AdminPage() {
   const [textTemplateLoading, setTextTemplateLoading] = useState(false);
   const [textTemplateSaving, setTextTemplateSaving] = useState(false);
   const [textTemplateTesting, setTextTemplateTesting] = useState(false);
+  const [textsSubTab, setTextsSubTab] = useState<"replies" | "template">("replies");
+  const [textReplies, setTextReplies] = useState<TextReplyEntry[]>([]);
+  const [textRepliesLoading, setTextRepliesLoading] = useState(false);
 
   // Customers state (derived from orders, keyed by phone)
   const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(null);
@@ -313,14 +317,16 @@ export default function AdminPage() {
       fetchPickupWindowDates();
     } else if (activeTab === "gallery") {
       fetchGalleryImages();
-    } else if (activeTab === "texts") {
+    } else if (activeTab === "texts" && textsSubTab === "replies") {
+      fetchTextReplies();
+    } else if (activeTab === "texts" && textsSubTab === "template") {
       fetchTextTemplate();
     } else if (activeTab === "updates") {
       fetchUpdates();
     } else if (activeTab === "customers") {
       fetchOrders();
     }
-  }, [activeTab]);
+  }, [activeTab, textsSubTab]);
 
   // Orders functions
   const fetchOrders = async () => {
@@ -842,6 +848,36 @@ export default function AdminPage() {
     }
   };
 
+  const fetchTextReplies = async () => {
+    try {
+      setTextRepliesLoading(true);
+      const requests: Promise<Response>[] = [fetch("/api/text-replies")];
+      if (orders.length === 0) {
+        requests.push(fetch("/api/orders"));
+      }
+      const responses = await Promise.all(requests);
+      const repliesRes = responses[0];
+      if (repliesRes.ok) {
+        const data: TextReplyEntry[] = await repliesRes.json();
+        setTextReplies(data);
+      } else {
+        setTextReplies([]);
+      }
+      if (responses[1]?.ok) {
+        const data = await responses[1].json();
+        const sorted = data.sort((a: Order, b: Order) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setOrders(sorted);
+      }
+    } catch (error) {
+      console.error("Error fetching text replies:", error);
+      setTextReplies([]);
+    } finally {
+      setTextRepliesLoading(false);
+    }
+  };
+
   const handleSaveTextTemplate = async () => {
     try {
       setTextTemplateSaving(true);
@@ -1172,6 +1208,14 @@ export default function AdminPage() {
       })
       .sort((a, b) => new Date(b.orders[0].date).getTime() - new Date(a.orders[0].date).getTime());
   }, [orders]);
+
+  const customerNameByPhone = useMemo(() => {
+    const map = new Map<string, string>();
+    customersList.forEach((c) => {
+      map.set(c.phoneKey, c.name);
+    });
+    return map;
+  }, [customersList]);
 
   const selectedCustomer = selectedCustomerPhone
     ? customersList.find((c) => normalizePhoneKey(c.phone) === selectedCustomerPhone)
@@ -3006,7 +3050,97 @@ export default function AdminPage() {
 
         {/* Texts Tab */}
         {activeTab === "texts" && (
-          <div className="max-w-4xl">
+          <div className="max-w-6xl">
+            <div className="mb-6 flex gap-2 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => setTextsSubTab("replies")}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  textsSubTab === "replies"
+                    ? "border-brown-600 text-brown-600"
+                    : "border-transparent text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Replies
+              </button>
+              <button
+                type="button"
+                onClick={() => setTextsSubTab("template")}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  textsSubTab === "template"
+                    ? "border-brown-600 text-brown-600"
+                    : "border-transparent text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Template
+              </button>
+            </div>
+
+            {textsSubTab === "replies" && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Text Replies</h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Inbound SMS replies from customers. Newest first.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchTextReplies()}
+                    disabled={textRepliesLoading}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium disabled:opacity-50"
+                  >
+                    {textRepliesLoading ? "Refreshing…" : "Refresh"}
+                  </button>
+                </div>
+                {textRepliesLoading && textReplies.length === 0 ? (
+                  <p className="text-sm text-gray-600">Loading replies…</p>
+                ) : textReplies.length === 0 ? (
+                  <p className="text-sm text-gray-600">No replies stored yet.</p>
+                ) : (
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                        <tr>
+                          <th className="px-3 py-2">Time</th>
+                          <th className="px-3 py-2">Customer</th>
+                          <th className="px-3 py-2">From</th>
+                          <th className="px-3 py-2">Message</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {textReplies.map((reply) => {
+                          const phoneKey = normalizePhoneKey(reply.fromNumber);
+                          const customerName = customerNameByPhone.get(phoneKey);
+                          return (
+                            <tr key={reply.id} className="align-top">
+                              <td className="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">
+                                {new Date(reply.createdAt).toLocaleString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </td>
+                              <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
+                                {customerName || "—"}
+                              </td>
+                              <td className="px-3 py-2 text-gray-800 whitespace-nowrap">{reply.fromNumber}</td>
+                              <td className="px-3 py-2 text-gray-800 whitespace-pre-wrap max-w-md">{reply.text}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {textsSubTab === "template" && (
+              <>
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <p className="text-sm font-medium text-gray-600">Texts remaining</p>
               <p className="text-5xl font-bold text-gray-900 mt-1">
@@ -3066,6 +3200,8 @@ export default function AdminPage() {
                 </>
               )}
             </div>
+              </>
+            )}
           </div>
         )}
 
