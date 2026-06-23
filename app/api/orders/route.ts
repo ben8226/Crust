@@ -43,7 +43,8 @@ export async function POST(request: Request) {
 
     // Validate pickup date and time if provided (re-check in case config changed during checkout)
     if (body.pickupDate && body.pickupTime) {
-      const validation = await validatePickupSlot(body.pickupDate, body.pickupTime);
+      const hasCutItems = body.items.some((item: { cut?: boolean }) => !!item.cut);
+      const validation = await validatePickupSlot(body.pickupDate, body.pickupTime, { hasCutItems });
       if (!validation.valid) {
         return NextResponse.json(
           { error: validation.error },

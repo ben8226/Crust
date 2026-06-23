@@ -229,6 +229,7 @@ export default function AdminPage() {
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [togglingDates, setTogglingDates] = useState<Set<string>>(new Set());
   const [pickupTimesConfig, setPickupTimesConfig] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }> | null>(null);
+  const [cutEarliestPickupTime, setCutEarliestPickupTime] = useState("2:00 PM");
   const [pickupTimesSaving, setPickupTimesSaving] = useState(false);
   const [pickupWindowDates, setPickupWindowDates] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }>>({});
   const [selectedDateForWindow, setSelectedDateForWindow] = useState<string | null>(null);
@@ -749,7 +750,10 @@ export default function AdminPage() {
       const response = await fetch("/api/pickup-times");
       if (response.ok) {
         const data = await response.json();
-        setPickupTimesConfig(data);
+        setPickupTimesConfig(data.pickupTimes ?? data);
+        if (typeof data.cutEarliestPickupTime === "string") {
+          setCutEarliestPickupTime(data.cutEarliestPickupTime);
+        }
       }
     } catch (error) {
       console.error("Error fetching pickup times:", error);
@@ -797,7 +801,10 @@ export default function AdminPage() {
       const response = await fetch("/api/pickup-times", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pickupTimes: pickupTimesConfig }),
+        body: JSON.stringify({
+          pickupTimes: pickupTimesConfig,
+          cutEarliestPickupTime,
+        }),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => null);
@@ -2671,6 +2678,23 @@ export default function AdminPage() {
                     These times are used to generate the 30-minute time slots on the checkout page
                     and for the next available pickup banner.
                   </p>
+                  <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                    <label className="block text-sm font-medium text-gray-800 mb-1">
+                      Earliest pickup time (sliced bread orders)
+                    </label>
+                    <select
+                      value={PICKUP_TIME_OPTIONS.includes(cutEarliestPickupTime) ? cutEarliestPickupTime : "2:00 PM"}
+                      onChange={(e) => setCutEarliestPickupTime(e.target.value)}
+                      className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500"
+                    >
+                      {PICKUP_TIME_OPTIONS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-600 mt-2">
+                      When an order includes pre-sliced bread, customers cannot choose a pickup time earlier than this.
+                    </p>
+                  </div>
                   {/* Mobile: card layout for clearer display */}
                   <div className="space-y-3 md:hidden">
                     {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(

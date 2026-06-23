@@ -314,16 +314,85 @@ function buildReviewNotificationText(
   return lines.join("\n");
 }
 
-/** Notify store inboxes when a customer saves a review. Sends to RESEND_BCC_EMAIL and RESEND_BCC_EMAIL_2. */
+function getAdminEmailRecipients(): string[] {
+  const bcc1 = (process.env.RESEND_BCC_EMAIL || "").trim();
+  const bcc2 = (process.env.RESEND_BCC_EMAIL_2 || "").trim();
+  return [bcc1, bcc2].filter(Boolean);
+}
+
+/** Public URL Resend should POST inbound `email.received` events to. */
+export function getResendInboundWebhookUrl(): string | undefined {
+  const baseUrl =
+    (process.env.NEXT_PUBLIC_BASE_URL || "").trim() ||
+    (process.env.NEXT_PUBLIC_SITE_URL || "").trim() ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  if (!baseUrl) return undefined;
+  return `${baseUrl.replace(/\/$/, "")}/api/resend/inbound`;
+}
+
+/** Forward a customer reply received via Resend Inbound to admin inboxes. */
+export async function forwardInboundEmailToAdmins(emailId: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM;
+  const recipients = getAdminEmailRecipients();
+
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY not configured. Skipping inbound email forward.");
+    return;
+  }
+  if (!from) {
+    console.warn("RESEND_FROM not configured. Skipping inbound email forward.");
+    return;
+  }
+  if (recipients.length === 0) {
+    console.warn("RESEND_BCC_EMAIL / RESEND_BCC_EMAIL_2 not configured. Skipping inbound email forward.");
+    return;
+  }
+
+  const resend = new Resend(apiKey);
+  const { data: email, error: getError } = await resend.emails.receiving.get(emailId);
+  if (getError || !email) {
+    throw new Error(getError?.message || "Failed to load inbound email");
+  }
+
+  const subject = email.subject?.trim() || "(no subject)";
+  const customerFrom = email.from?.trim() || "unknown sender";
+  const bodyHtml = email.html?.trim();
+  const bodyText = email.text?.trim();
+
+  const { error: sendError } = await resend.emails.send({
+    from,
+    to: recipients,
+    replyTo: customerFrom,
+    subject: `[Customer reply] ${subject}`,
+    html: `
+      <div style="font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#111;">
+        <p style="margin:0 0 8px 0;"><strong>Customer reply from:</strong> ${escapeHtml(customerFrom)}</p>
+        <p style="margin:0 0 16px 0;"><strong>Original subject:</strong> ${escapeHtml(subject)}</p>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;" />
+        ${bodyHtml || `<pre style="white-space:pre-wrap;font-family:inherit;">${escapeHtml(bodyText || "(empty message)")}</pre>`}
+      </div>
+    `,
+    text: [
+      `Customer reply from: ${customerFrom}`,
+      `Original subject: ${subject}`,
+      "",
+      bodyText || "(empty message)",
+    ].join("\n"),
+  });
+
+  if (sendError) {
+    throw new Error(sendError.message || "Failed to forward inbound email");
+  }
+}
+
 export async function sendReviewSavedNotificationEmail(
   order: Order,
   body: Record<string, unknown>
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM;
-  const bcc1 = (process.env.RESEND_BCC_EMAIL || "").trim();
-  const bcc2 = (process.env.RESEND_BCC_EMAIL_2 || "").trim();
-  const recipients = [bcc1, bcc2].filter(Boolean);
+  const recipients = getAdminEmailRecipients();
 
   if (!apiKey) {
     console.warn("RESEND_API_KEY not configured. Skipping review notification email.");
@@ -367,12 +436,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<void> {
   if (!to) return;
 
   // Collect BCC recipients from environment variables
-  const bccEmails: string[] = [];
-  const bcc1 = (process.env.RESEND_BCC_EMAIL || "").trim();
-  const bcc2 = (process.env.RESEND_BCC_EMAIL_2 || "").trim();
-  
-  if (bcc1) bccEmails.push(bcc1);
-  if (bcc2) bccEmails.push(bcc2);
+  const bccEmails = getAdminEmailRecipients();
 
   const breadNames = await buildBreadNameLookup();
   const resend = new Resend(apiKey);

@@ -3,6 +3,7 @@ import type { TextReplyEntry } from "@/types/text-reply";
 import type { TextLogEntry } from "@/types/texts";
 import { UpdateEntry } from "@/types/update";
 import type { SettingEntry } from "@/types/settings";
+import { parseTimeToMinutes, formatMinutesToTime } from "@/lib/date";
 
 /** Redis key for app settings ("Settings" table). */
 const SETTINGS_REDIS_KEY = "settings";
@@ -24,6 +25,9 @@ export interface PickupTimeWindow {
 
 // Per-weekday pickup time configuration keyed by 0-6 (Sun-Sat) as strings
 export type PickupTimesConfig = Record<string, PickupTimeWindow>;
+
+export const DEFAULT_CUT_EARLIEST_PICKUP_TIME = "2:00 PM";
+const CUT_EARLIEST_PICKUP_TIME_KEY = "cutEarliestPickupTime";
 
 // Lazy load Upstash Redis to avoid build-time errors
 async function getRedis() {
@@ -569,6 +573,33 @@ export async function setPickupTimes(config: PickupTimesConfig): Promise<void> {
   }
 }
 
+export async function getCutEarliestPickupTime(): Promise<string> {
+  try {
+    const redis = await getRedis();
+    if (!redis) return DEFAULT_CUT_EARLIEST_PICKUP_TIME;
+    const stored = await redis.get<string>(CUT_EARLIEST_PICKUP_TIME_KEY);
+    return stored || DEFAULT_CUT_EARLIEST_PICKUP_TIME;
+  } catch (error) {
+    console.error("Error reading cut earliest pickup time:", error);
+    return DEFAULT_CUT_EARLIEST_PICKUP_TIME;
+  }
+}
+
+export async function setCutEarliestPickupTime(time: string): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.error("✗ Upstash Redis not configured. Cut earliest pickup time not persisted.");
+      throw new Error("Redis not configured");
+    }
+    await redis.set(CUT_EARLIEST_PICKUP_TIME_KEY, time);
+    console.log("✓ Cut earliest pickup time saved successfully");
+  } catch (error) {
+    console.error("Error saving cut earliest pickup time:", error);
+    throw error;
+  }
+}
+
 // Pickup window overrides for specific dates (YYYY-MM-DD -> window)
 // Overrides the weekday default for that date. blocked=true means no pickup that day.
 export type PickupWindowDates = Record<string, PickupTimeWindow>;
@@ -614,22 +645,11 @@ export async function removePickupWindowForDate(date: string): Promise<void> {
   }
 }
 
-// Parse "12:00 PM" style string to minutes since midnight
-function parseTimeToMinutes(time: string): number | null {
-  const match = (time || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!match) return null;
-  let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const period = match[3].toUpperCase();
-  if (period === "PM" && hours !== 12) hours += 12;
-  if (period === "AM" && hours === 12) hours = 0;
-  return hours * 60 + minutes;
-}
-
 /** Validate pickup date and time against current config. Returns error message if invalid. */
 export async function validatePickupSlot(
   pickupDate: string,
-  pickupTime: string
+  pickupTime: string,
+  options?: { hasCutItems?: boolean }
 ): Promise<{ valid: true } | { valid: false; error: string }> {
   const [blockedDates, pickupTimesConfig, pickupWindowDates] = await Promise.all([
     getBlockedDates(),
@@ -664,7 +684,31 @@ export async function validatePickupSlot(
     return { valid: false, error: "Invalid pickup time. Please refresh and select a valid time slot." };
   }
 
-  if (slotMins < startMins || slotMins > endMins) {
+  let effectiveStartMins = startMins;
+  if (options?.hasCutItems) {
+    const cutEarliest = await getCutEarliestPickupTime();
+    const cutMins = parseTimeToMinutes(cutEarliest);
+    if (cutMins != null) {
+      effectiveStartMins = Math.max(startMins, cutMins);
+    }
+  }
+
+  if (effectiveStartMins > endMins) {
+    return {
+      valid: false,
+      error: options?.hasCutItems
+        ? "No pickup times are available for sliced bread orders on this date. Please choose another date."
+        : "Pickup is not available on this date. Please choose another date.",
+    };
+  }
+
+  if (slotMins < effectiveStartMins || slotMins > endMins) {
+    if (options?.hasCutItems && effectiveStartMins > startMins) {
+      return {
+        valid: false,
+        error: `Sliced bread orders require pickup at ${formatMinutesToTime(effectiveStartMins)} or later on this date.`,
+      };
+    }
     return { valid: false, error: "This pickup time is no longer available. The window for this date is " + window.startTime + "–" + window.endTime + ". Please choose another time." };
   }
 

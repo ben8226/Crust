@@ -28,3 +28,24 @@ export function formatPickupDisplay(
   return parsed.toLocaleDateString(locale, options);
 }
 
+/** Parse "12:00 PM" style string to minutes since midnight. */
+export function parseTimeToMinutes(time: string): number | null {
+  const match = (time || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
+/** Format minutes since midnight to "12:00 PM" style. */
+export function formatMinutesToTime(mins: number): string {
+  const hours24 = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  const period = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+  return `${hours12}:${m.toString().padStart(2, "0")} ${period}`;
+}
+

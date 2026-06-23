@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { formatDateInput } from "@/lib/date";
+import { formatDateInput, parseTimeToMinutes, formatMinutesToTime } from "@/lib/date";
 
 export default function CheckoutPage() {
   const { cart, getTotalPrice, clearCart } = useCart();
@@ -26,6 +26,7 @@ export default function CheckoutPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [pickupTimesConfig, setPickupTimesConfig] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }> | null>(null);
+  const [cutEarliestPickupTime, setCutEarliestPickupTime] = useState("2:00 PM");
   const [pickupWindowDates, setPickupWindowDates] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }>>({});
   const [phoneError, setPhoneError] = useState<string>("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +62,10 @@ export default function CheckoutPage() {
         const response = await fetch("/api/pickup-times");
         if (response.ok) {
           const data = await response.json();
-          setPickupTimesConfig(data);
+          setPickupTimesConfig(data.pickupTimes ?? data);
+          if (typeof data.cutEarliestPickupTime === "string") {
+            setCutEarliestPickupTime(data.cutEarliestPickupTime);
+          }
         }
       } catch (error) {
         console.error("Error fetching pickup times:", error);
@@ -96,26 +100,7 @@ export default function CheckoutPage() {
     return false;
   };
 
-  // Parse "12:00 PM" / "6:00 PM" style string to minutes since midnight
-  const parseTimeToMinutes = (time: string): number | null => {
-    const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (!match) return null;
-    let hours = parseInt(match[1], 10);
-    const minutes = parseInt(match[2], 10);
-    const period = match[3].toUpperCase();
-    if (period === "PM" && hours !== 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
-    return hours * 60 + minutes;
-  };
-
-  // Format minutes since midnight to "12:00 PM" style
-  const formatMinutesToTime = (mins: number): string => {
-    const hours24 = Math.floor(mins / 60) % 24;
-    const m = mins % 60;
-    const period = hours24 >= 12 ? "PM" : "AM";
-    const hours12 = hours24 % 12 || 12;
-    return `${hours12}:${m.toString().padStart(2, "0")} ${period}`;
-  };
+  const hasCutItems = cart.some((item) => item.cut);
 
   // Get available pickup times: use date-specific override if set, else weekday config
   const getAvailableTimes = (): string[] => {
@@ -137,14 +122,23 @@ export default function CheckoutPage() {
     const endMins = parseTimeToMinutes(window.endTime);
     if (startMins == null || endMins == null || startMins > endMins) return fallback;
 
+    let effectiveStartMins = startMins;
+    if (hasCutItems) {
+      const cutMins = parseTimeToMinutes(cutEarliestPickupTime);
+      if (cutMins != null) {
+        effectiveStartMins = Math.max(startMins, cutMins);
+      }
+    }
+    if (effectiveStartMins > endMins) return [];
+
     const slots: string[] = [];
-    for (let m = startMins; m <= endMins; m += 30) {
+    for (let m = effectiveStartMins; m <= endMins; m += 30) {
       slots.push(formatMinutesToTime(m));
     }
     return slots;
   };
 
-  // Reset pickup time if it's no longer valid when date or config changes
+  // Reset pickup time if it's no longer valid when date, config, or cart changes
   useEffect(() => {
     if (pickupDate && pickupTime) {
       const availableTimes = getAvailableTimes();
@@ -153,7 +147,7 @@ export default function CheckoutPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupDate, pickupTimesConfig, pickupWindowDates]);
+  }, [pickupDate, pickupTimesConfig, pickupWindowDates, cutEarliestPickupTime, cart]);
 
   // Convert Date to string for form submission (local, no UTC shift)
   const getDateString = (date: Date | null): string => {
@@ -257,6 +251,21 @@ export default function CheckoutPage() {
 
     if (!pickupDate) {
       alert("Please select a pickup date.");
+      return;
+    }
+
+    if (!pickupTime) {
+      alert("Please select a pickup time.");
+      return;
+    }
+
+    const availableTimes = getAvailableTimes();
+    if (!availableTimes.includes(pickupTime)) {
+      alert(
+        hasCutItems
+          ? `Sliced bread orders require pickup at ${cutEarliestPickupTime} or later. Please choose another time.`
+          : "The selected pickup time is no longer available. Please choose another time."
+      );
       return;
     }
 
@@ -499,6 +508,11 @@ export default function CheckoutPage() {
                       return (
                         <p className="text-xs text-gray-500 mt-1">
                           Pickup window: {range}
+                          {hasCutItems && (
+                            <span className="block text-amber-700 mt-1">
+                              Sliced bread: earliest pickup is {cutEarliestPickupTime}.
+                            </span>
+                          )}
                         </p>
                       );
                     })()}
