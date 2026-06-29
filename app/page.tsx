@@ -4,7 +4,7 @@ import ProductCard from "@/components/ProductCard";
 import Link from "next/link";
 import { getProducts, getProductDisplayConfig, getSpecialEvent, getOrders } from "@/lib/db";
 import { getBlockedDates, getPickupTimes, getPickupWindowDates } from "@/lib/db";
-import { formatDateInput } from "@/lib/date";
+import { formatDateInput, formatSpecialEventBannerDate } from "@/lib/date";
 import {
   buildSpecialEventBannerLines,
   countSpecialEventSoldByProduct,
@@ -180,7 +180,9 @@ export default async function Home() {
       {showSpecialEventBanner && (
         <div className="bg-amber-500 text-white py-3">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p className="text-sm sm:text-base font-semibold">Special Event Today!</p>
+            <p className="text-sm sm:text-base font-semibold">
+              Special Event Today, {formatSpecialEventBannerDate(specialEvent!.date)}!
+            </p>
             <p className="text-sm sm:text-base mt-1">
               {specialEventBannerLines.join(" · ")}
             </p>

@@ -64,11 +64,14 @@ export function buildSpecialEventBannerLines(
   soldByProduct: Record<string, number>
 ): string[] {
   return getSpecialEventProductIds(config).map((productId) => {
-    const name = products.find((p) => p.id === productId)?.name || "Item";
+    const product = products.find((p) => p.id === productId);
+    const name = product?.name || "Item";
+    const category = product?.category?.trim();
+    const label = category ? `${category}, ${name}` : name;
     const max = config.productQuantities[productId] ?? 0;
     const sold = soldByProduct[productId] ?? 0;
     const remaining = Math.max(0, max - sold);
-    return `${name} — ${remaining} of ${max} available`;
+    return `${label} — ${remaining} of ${max} available`;
   });
 }
 

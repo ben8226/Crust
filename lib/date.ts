@@ -28,6 +28,30 @@ export function formatPickupDisplay(
   return parsed.toLocaleDateString(locale, options);
 }
 
+/** e.g. 1 → "1st", 29 → "29th" */
+export function formatOrdinalDay(day: number): string {
+  const mod100 = day % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1:
+      return `${day}st`;
+    case 2:
+      return `${day}nd`;
+    case 3:
+      return `${day}rd`;
+    default:
+      return `${day}th`;
+  }
+}
+
+/** e.g. "2026-06-29" → "Monday 29th" */
+export function formatSpecialEventBannerDate(dateString: string): string {
+  const parsed = parseLocalDateString(dateString);
+  if (!parsed) return "";
+  const weekday = parsed.toLocaleDateString("en-US", { weekday: "long" });
+  return `${weekday} ${formatOrdinalDay(parsed.getDate())}`;
+}
+
 /** Parse "12:00 PM" style string to minutes since midnight. */
 export function parseTimeToMinutes(time: string): number | null {
   const match = (time || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
