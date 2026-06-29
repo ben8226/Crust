@@ -44,12 +44,13 @@ export function formatOrdinalDay(day: number): string {
   }
 }
 
-/** e.g. "2026-06-29" → "Monday 29th" */
+/** e.g. "2026-06-29" → "Monday June 29th" */
 export function formatSpecialEventBannerDate(dateString: string): string {
   const parsed = parseLocalDateString(dateString);
   if (!parsed) return "";
   const weekday = parsed.toLocaleDateString("en-US", { weekday: "long" });
-  return `${weekday} ${formatOrdinalDay(parsed.getDate())}`;
+  const month = parsed.toLocaleDateString("en-US", { month: "long" });
+  return `${weekday} ${month} ${formatOrdinalDay(parsed.getDate())}`;
 }
 
 /** Parse "12:00 PM" style string to minutes since midnight. */
