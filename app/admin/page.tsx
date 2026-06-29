@@ -27,7 +27,7 @@ const PICKUP_TIME_OPTIONS: string[] = (() => {
   return options;
 })();
 
-type Tab = "orders" | "products" | "calendar" | "gallery" | "texts" | "updates" | "customers";
+type Tab = "orders" | "products" | "calendar" | "gallery" | "texts" | "updates" | "customers" | "special-event";
 
 function PickupWindowDateModal({
   date,
@@ -257,6 +257,13 @@ export default function AdminPage() {
   const [textReplies, setTextReplies] = useState<TextReplyEntry[]>([]);
   const [textRepliesLoading, setTextRepliesLoading] = useState(false);
 
+  // Special event
+  const [specialEventDate, setSpecialEventDate] = useState("");
+  const [specialEventProductQuantities, setSpecialEventProductQuantities] = useState<Record<string, number>>({});
+  const [specialEventSoldByProduct, setSpecialEventSoldByProduct] = useState<Record<string, number>>({});
+  const [specialEventLoading, setSpecialEventLoading] = useState(false);
+  const [specialEventSaving, setSpecialEventSaving] = useState(false);
+
   // Customers state (derived from orders, keyed by phone)
   const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<{ name: string; phone: string; email: string } | null>(null);
@@ -325,6 +332,9 @@ export default function AdminPage() {
       fetchUpdates();
     } else if (activeTab === "customers") {
       fetchOrders();
+    } else if (activeTab === "special-event") {
+      fetchSpecialEvent();
+      fetchProducts();
     }
   }, [activeTab, textsSubTab]);
 
@@ -933,6 +943,114 @@ export default function AdminPage() {
     }
   };
 
+  const fetchSpecialEvent = async () => {
+    try {
+      setSpecialEventLoading(true);
+      const response = await fetch("/api/special-event");
+      if (response.ok) {
+        const data = await response.json();
+        if (!data) {
+          setSpecialEventDate("");
+          setSpecialEventProductQuantities({});
+          setSpecialEventSoldByProduct({});
+          return;
+        }
+        setSpecialEventDate(data.date || "");
+        setSpecialEventProductQuantities(data.productQuantities || {});
+        setSpecialEventSoldByProduct(data.soldByProduct || {});
+      }
+    } catch (error) {
+      console.error("Error fetching special event:", error);
+    } finally {
+      setSpecialEventLoading(false);
+    }
+  };
+
+  const toggleSpecialEventProduct = (productId: string) => {
+    setSpecialEventProductQuantities((prev) => {
+      if (productId in prev) {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      }
+      return { ...prev, [productId]: 10 };
+    });
+  };
+
+  const setSpecialEventProductQuantity = (productId: string, quantity: number) => {
+    setSpecialEventProductQuantities((prev) => ({
+      ...prev,
+      [productId]: quantity,
+    }));
+  };
+
+  const handleSaveSpecialEvent = async () => {
+    if (!specialEventDate) {
+      alert("Please select an event date.");
+      return;
+    }
+    const selectedIds = Object.keys(specialEventProductQuantities);
+    if (selectedIds.length === 0) {
+      alert("Please select at least one bread type.");
+      return;
+    }
+    for (const id of selectedIds) {
+      const qty = specialEventProductQuantities[id];
+      if (!Number.isFinite(qty) || qty < 1) {
+        alert("Each selected bread must have a max quantity of at least 1.");
+        return;
+      }
+    }
+
+    try {
+      setSpecialEventSaving(true);
+      const response = await fetch("/api/special-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: specialEventDate,
+          productQuantities: specialEventProductQuantities,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        alert(data?.error || "Failed to save special event");
+        return;
+      }
+      await fetchSpecialEvent();
+    } catch (error) {
+      console.error("Error saving special event:", error);
+      alert("Error saving special event. Please try again.");
+    } finally {
+      setSpecialEventSaving(false);
+    }
+  };
+
+  const handleClearSpecialEvent = async () => {
+    if (!confirm("Clear the special event configuration?")) return;
+    try {
+      setSpecialEventSaving(true);
+      const response = await fetch("/api/special-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: "" }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        alert(data?.error || "Failed to clear special event");
+        return;
+      }
+      setSpecialEventDate("");
+      setSpecialEventProductQuantities({});
+      setSpecialEventSoldByProduct({});
+    } catch (error) {
+      console.error("Error clearing special event:", error);
+      alert("Error clearing special event. Please try again.");
+    } finally {
+      setSpecialEventSaving(false);
+    }
+  };
+
   const getEffectiveWindowForDate = (date: Date) => {
     const dateStr = formatDateInput(date);
     const override = pickupWindowDates[dateStr];
@@ -1217,6 +1335,14 @@ export default function AdminPage() {
     return map;
   }, [customersList]);
 
+  const specialEventBreadOptions = useMemo(() => {
+    const breads = products.filter((p) => (p.category || "").toLowerCase().includes("bread"));
+    const list = breads.length > 0 ? breads : products;
+    return [...list].sort(
+      (a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name)
+    );
+  }, [products]);
+
   const selectedCustomer = selectedCustomerPhone
     ? customersList.find((c) => normalizePhoneKey(c.phone) === selectedCustomerPhone)
     : null;
@@ -1374,6 +1500,16 @@ export default function AdminPage() {
                     }`}
                   >
                     Customers
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("special-event")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "special-event"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Special Event
                   </button>
                 </div>
               </div>
@@ -3202,6 +3338,109 @@ export default function AdminPage() {
             </div>
               </>
             )}
+          </div>
+        )}
+
+        {/* Special Event Tab */}
+        {activeTab === "special-event" && (
+          <div className="max-w-3xl">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Special Event</h2>
+              <p className="text-sm text-gray-600 mb-6">
+                Configure a one-day event. On the event date, a banner appears on the main page
+                with per-item availability. Orders with pickup on the event date count toward each
+                product&apos;s max.
+              </p>
+              {specialEventLoading ? (
+                <p className="text-sm text-gray-600">Loading special event...</p>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <label htmlFor="special-event-date" className="block text-sm font-medium text-gray-700 mb-1">
+                      Event date
+                    </label>
+                    <input
+                      id="special-event-date"
+                      type="date"
+                      value={specialEventDate}
+                      onChange={(e) => setSpecialEventDate(e.target.value)}
+                      className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="block text-sm font-medium text-gray-700 mb-2">Bread type(s)</p>
+                    {specialEventBreadOptions.length === 0 ? (
+                      <p className="text-sm text-gray-600">No products loaded.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-80 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                        {specialEventBreadOptions.map((product) => {
+                          const selected = product.id in specialEventProductQuantities;
+                          const maxQty = specialEventProductQuantities[product.id] ?? 10;
+                          const sold = specialEventSoldByProduct[product.id] ?? 0;
+                          return (
+                            <div
+                              key={product.id}
+                              className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 border-b border-gray-100 last:border-0"
+                            >
+                              <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer min-w-[10rem] flex-1">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleSpecialEventProduct(product.id)}
+                                  className="rounded border-gray-300 text-brown-600 focus:ring-brown-500"
+                                />
+                                <span>{product.name}</span>
+                              </label>
+                              {selected && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <label className="text-xs text-gray-600 whitespace-nowrap">
+                                    Max qty
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={maxQty}
+                                      onChange={(e) =>
+                                        setSpecialEventProductQuantity(product.id, Number(e.target.value))
+                                      }
+                                      className="ml-2 w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-brown-500 focus:border-brown-500"
+                                    />
+                                  </label>
+                                  {specialEventDate && (
+                                    <span className="text-xs text-gray-500">
+                                      Sold: {sold} · Left: {Math.max(0, maxQty - sold)}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSaveSpecialEvent}
+                      disabled={specialEventSaving}
+                      className="bg-brown-600 text-white px-4 py-2 rounded-lg hover:bg-brown-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {specialEventSaving ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearSpecialEvent}
+                      disabled={specialEventSaving}
+                      className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                    >
+                      Clear event
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

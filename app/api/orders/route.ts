@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
-import { saveOrder, getOrders, validatePickupSlot } from "@/lib/db";
+import { saveOrder, getOrders, validatePickupSlot, getSpecialEvent } from "@/lib/db";
 import { Order } from "@/types/product";
 import { sendOrderConfirmationEmail } from "@/lib/email";
+import {
+  countSpecialEventSoldByProduct,
+  getSpecialEventProductIds,
+  validateSpecialEventOrder,
+} from "@/lib/special-event";
 
 /** Normalize phone to 10 digits, then format as +1 (XXX) XXX-XXXX for storage. */
 function formatPhoneForStorage(phone: string): string {
@@ -44,7 +49,29 @@ export async function POST(request: Request) {
     // Validate pickup date and time if provided (re-check in case config changed during checkout)
     if (body.pickupDate && body.pickupTime) {
       const hasCutItems = body.items.some((item: { cut?: boolean }) => !!item.cut);
-      const validation = await validatePickupSlot(body.pickupDate, body.pickupTime, { hasCutItems });
+
+      if (body.specialEvent) {
+        const config = await getSpecialEvent();
+        const orders = await getOrders();
+        const productIds = config ? getSpecialEventProductIds(config) : [];
+        const soldByProduct = config
+          ? countSpecialEventSoldByProduct(orders, config.date, productIds)
+          : {};
+        const eventValidation = validateSpecialEventOrder(
+          config,
+          body.items,
+          body.pickupDate,
+          soldByProduct
+        );
+        if (!eventValidation.valid) {
+          return NextResponse.json({ error: eventValidation.error }, { status: 400 });
+        }
+      }
+
+      const validation = await validatePickupSlot(body.pickupDate, body.pickupTime, {
+        hasCutItems: body.specialEvent ? false : hasCutItems,
+        specialEvent: !!body.specialEvent,
+      });
       if (!validation.valid) {
         return NextResponse.json(
           { error: validation.error },

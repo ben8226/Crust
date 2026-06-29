@@ -1,9 +1,16 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
-import { getProducts, getProductDisplayConfig } from "@/lib/db";
+import Link from "next/link";
+import { getProducts, getProductDisplayConfig, getSpecialEvent, getOrders } from "@/lib/db";
 import { getBlockedDates, getPickupTimes, getPickupWindowDates } from "@/lib/db";
 import { formatDateInput } from "@/lib/date";
+import {
+  buildSpecialEventBannerLines,
+  countSpecialEventSoldByProduct,
+  getSpecialEventProductIds,
+  isSpecialEventToday,
+} from "@/lib/special-event";
 import { products as staticProducts } from "@/data/products";
 import { Product } from "@/types/product";
 
@@ -128,13 +135,32 @@ function organizeProducts(
 }
 
 export default async function Home() {
-  const [allProducts, displayConfig] = await Promise.all([
+  const [allProducts, displayConfig, specialEvent, orders] = await Promise.all([
     fetchProducts(),
     getProductDisplayConfig(),
+    getSpecialEvent(),
+    getOrders(),
   ]);
   const products = allProducts.filter((p) => !p.hiddenFromMenu);
   const { grouped, sortedCategories } = organizeProducts(products, displayConfig);
   const nextPickup = await getNextAvailablePickup();
+
+  const showSpecialEventBanner =
+    isSpecialEventToday(specialEvent) &&
+    specialEvent &&
+    getSpecialEventProductIds(specialEvent).length > 0;
+  const specialEventBannerLines =
+    showSpecialEventBanner && specialEvent
+      ? buildSpecialEventBannerLines(
+          allProducts,
+          specialEvent,
+          countSpecialEventSoldByProduct(
+            orders,
+            specialEvent.date,
+            getSpecialEventProductIds(specialEvent)
+          )
+        )
+      : [];
 
   // Get available breads for loaf boxes.
   // Hidden products can still appear here when explicitly allowed from admin.
@@ -151,6 +177,22 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-tan-200">
       <Navbar />
+      {showSpecialEventBanner && (
+        <div className="bg-amber-500 text-white py-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p className="text-sm sm:text-base font-semibold">Special Event Today!</p>
+            <p className="text-sm sm:text-base mt-1">
+              {specialEventBannerLines.join(" · ")}
+            </p>
+            <Link
+              href="/special-event"
+              className="inline-block mt-3 bg-white text-amber-700 font-semibold px-5 py-2 rounded-lg hover:bg-amber-50 transition-colors text-sm sm:text-base"
+            >
+              Order for Today&apos;s Event
+            </Link>
+          </div>
+        </div>
+      )}
       {nextPickup && (
         <div className="bg-brown-600 text-white py-3">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

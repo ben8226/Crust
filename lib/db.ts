@@ -3,6 +3,8 @@ import type { TextReplyEntry } from "@/types/text-reply";
 import type { TextLogEntry } from "@/types/texts";
 import { UpdateEntry } from "@/types/update";
 import type { SettingEntry } from "@/types/settings";
+import type { SpecialEventConfig, LegacySpecialEventConfig } from "@/types/special-event";
+import { normalizeSpecialEventConfig } from "@/lib/special-event";
 import { parseTimeToMinutes, formatMinutesToTime } from "@/lib/date";
 
 /** Redis key for app settings ("Settings" table). */
@@ -28,6 +30,7 @@ export type PickupTimesConfig = Record<string, PickupTimeWindow>;
 
 export const DEFAULT_CUT_EARLIEST_PICKUP_TIME = "2:00 PM";
 const CUT_EARLIEST_PICKUP_TIME_KEY = "cutEarliestPickupTime";
+const SPECIAL_EVENT_REDIS_KEY = "specialEvent";
 
 // Lazy load Upstash Redis to avoid build-time errors
 async function getRedis() {
@@ -600,6 +603,40 @@ export async function setCutEarliestPickupTime(time: string): Promise<void> {
   }
 }
 
+export async function getSpecialEvent(): Promise<SpecialEventConfig | null> {
+  try {
+    const redis = await getRedis();
+    if (!redis) return null;
+    const stored = await redis.get<LegacySpecialEventConfig | SpecialEventConfig>(SPECIAL_EVENT_REDIS_KEY);
+    return normalizeSpecialEventConfig(stored);
+  } catch (error) {
+    console.error("Error reading special event:", error);
+    return null;
+  }
+}
+
+export async function setSpecialEvent(config: SpecialEventConfig | null): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (!redis) {
+      console.error("✗ Upstash Redis not configured. Special event not persisted.");
+      throw new Error("Redis not configured");
+    }
+    if (!config?.date?.trim()) {
+      await redis.del(SPECIAL_EVENT_REDIS_KEY);
+      return;
+    }
+    await redis.set(SPECIAL_EVENT_REDIS_KEY, {
+      ...config,
+      updatedAt: new Date().toISOString(),
+    });
+    console.log("✓ Special event saved successfully");
+  } catch (error) {
+    console.error("Error saving special event:", error);
+    throw error;
+  }
+}
+
 // Pickup window overrides for specific dates (YYYY-MM-DD -> window)
 // Overrides the weekday default for that date. blocked=true means no pickup that day.
 export type PickupWindowDates = Record<string, PickupTimeWindow>;
@@ -649,7 +686,7 @@ export async function removePickupWindowForDate(date: string): Promise<void> {
 export async function validatePickupSlot(
   pickupDate: string,
   pickupTime: string,
-  options?: { hasCutItems?: boolean }
+  options?: { hasCutItems?: boolean; specialEvent?: boolean }
 ): Promise<{ valid: true } | { valid: false; error: string }> {
   const [blockedDates, pickupTimesConfig, pickupWindowDates] = await Promise.all([
     getBlockedDates(),
@@ -657,22 +694,29 @@ export async function validatePickupSlot(
     getPickupWindowDates(),
   ]);
 
-  if (blockedDates.includes(pickupDate)) {
-    return { valid: false, error: "This pickup date is no longer available. Please choose another date." };
-  }
+  if (!options?.specialEvent) {
+    if (blockedDates.includes(pickupDate)) {
+      return { valid: false, error: "This pickup date is no longer available. Please choose another date." };
+    }
 
-  const dateOverride = pickupWindowDates[pickupDate];
-  if (dateOverride?.blocked) {
-    return { valid: false, error: "This pickup date is no longer available. Please choose another date." };
+    const dateOverride = pickupWindowDates[pickupDate];
+    if (dateOverride?.blocked) {
+      return { valid: false, error: "This pickup date is no longer available. Please choose another date." };
+    }
   }
 
   const [y, m, d] = pickupDate.split("-").map(Number);
   const date = new Date(y, m - 1, d);
   const dayKey = String(date.getDay());
   const weekdayWindow = pickupTimesConfig[dayKey];
-  const window = dateOverride ?? weekdayWindow;
+  const dateOverride = pickupWindowDates[pickupDate];
+  let window = dateOverride ?? weekdayWindow;
 
-  if (!window || window.blocked) {
+  if (options?.specialEvent) {
+    if (!window || window.blocked) {
+      window = { startTime: "12:00 PM", endTime: "6:00 PM" };
+    }
+  } else if (!window || window.blocked) {
     return { valid: false, error: "Pickup is not available on this date. Please choose another date." };
   }
 
