@@ -92,3 +92,16 @@ export function formatMinutesToTime(mins: number): string {
   return `${hours12}:${m.toString().padStart(2, "0")} ${period}`;
 }
 
+/** Build 30-minute pickup slots between start and end (inclusive). */
+export function buildPickupTimeSlots(startTime: string, endTime: string): string[] {
+  const startMins = parseTimeToMinutes(startTime);
+  const endMins = parseTimeToMinutes(endTime);
+  if (startMins == null || endMins == null || startMins > endMins) return [];
+
+  const slots: string[] = [];
+  for (let m = startMins; m <= endMins; m += 30) {
+    slots.push(formatMinutesToTime(m));
+  }
+  return slots;
+}
+

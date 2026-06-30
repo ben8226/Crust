@@ -8,13 +8,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Product } from "@/types/product";
 import {
-  formatDateInput,
   formatPickupDisplay,
   parseLocalDateString,
-  parseTimeToMinutes,
-  formatMinutesToTime,
+  buildPickupTimeSlots,
 } from "@/lib/date";
 import { getSpecialEventOrderLimit } from "@/lib/special-event";
+import { DEFAULT_SPECIAL_EVENT_PICKUP_WINDOW } from "@/types/special-event";
 
 interface SpecialEventData {
   date: string;
@@ -22,6 +21,7 @@ interface SpecialEventData {
   soldByProduct: Record<string, number>;
   remainingByProduct: Record<string, number>;
   isActiveToday: boolean;
+  pickupWindow?: { startTime: string; endTime: string };
 }
 
 export default function SpecialEventCheckoutPage() {
@@ -39,12 +39,6 @@ export default function SpecialEventCheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
   const [pickupTime, setPickupTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pickupTimesConfig, setPickupTimesConfig] = useState<
-    Record<string, { startTime: string; endTime: string; blocked?: boolean }> | null
-  >(null);
-  const [pickupWindowDates, setPickupWindowDates] = useState<
-    Record<string, { startTime: string; endTime: string; blocked?: boolean }>
-  >({});
   const [phoneError, setPhoneError] = useState("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,22 +47,13 @@ export default function SpecialEventCheckoutPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [eventRes, productsRes, timesRes, windowRes] = await Promise.all([
+        const [eventRes, productsRes] = await Promise.all([
           fetch("/api/special-event"),
           fetch("/api/products"),
-          fetch("/api/pickup-times"),
-          fetch("/api/pickup-window-dates"),
         ]);
 
         if (productsRes.ok) {
           setProducts(await productsRes.json());
-        }
-        if (timesRes.ok) {
-          const data = await timesRes.json();
-          setPickupTimesConfig(data.pickupTimes ?? data);
-        }
-        if (windowRes.ok) {
-          setPickupWindowDates(await windowRes.json());
         }
         if (eventRes.ok) {
           const data = await eventRes.json();
@@ -130,41 +115,20 @@ export default function SpecialEventCheckoutPage() {
     0
   );
 
-  const getAvailableTimes = (): string[] => {
-    if (!pickupDate) return [];
+  const pickupWindow = eventData?.pickupWindow ?? DEFAULT_SPECIAL_EVENT_PICKUP_WINDOW;
 
-    const fallback = [
-      "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
-      "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM",
-    ];
-
-    const dateString = formatDateInput(pickupDate);
-    const dateOverride = pickupWindowDates[dateString];
-    const dayKey = String(pickupDate.getDay());
-    const weekdayWindow = pickupTimesConfig?.[dayKey];
-    const window = dateOverride ?? weekdayWindow;
-    if (!window || window.blocked) return fallback;
-
-    const startMins = parseTimeToMinutes(window.startTime);
-    const endMins = parseTimeToMinutes(window.endTime);
-    if (startMins == null || endMins == null || startMins > endMins) return fallback;
-
-    const slots: string[] = [];
-    for (let m = startMins; m <= endMins; m += 30) {
-      slots.push(formatMinutesToTime(m));
-    }
-    return slots;
-  };
+  const getAvailableTimes = (): string[] =>
+    buildPickupTimeSlots(pickupWindow.startTime, pickupWindow.endTime);
 
   useEffect(() => {
-    if (pickupDate && pickupTime) {
+    if (pickupTime) {
       const availableTimes = getAvailableTimes();
       if (!availableTimes.includes(pickupTime)) {
         setPickupTime("");
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupDate, pickupTimesConfig, pickupWindowDates]);
+  }, [eventData?.pickupWindow]);
 
   const formatPhone = (digits: string): string => {
     const d = (digits || "").slice(0, 10);
@@ -516,6 +480,9 @@ export default function SpecialEventCheckoutPage() {
                         </option>
                       ))}
                     </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Pickup window: {pickupWindow.startTime} – {pickupWindow.endTime}
+                    </p>
                   </div>
                 </div>
               </div>

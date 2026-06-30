@@ -4,6 +4,7 @@ import {
   countSpecialEventSoldByProduct,
   getSpecialEventProductIds,
   isSpecialEventToday,
+  parseSpecialEventPickupWindow,
 } from "@/lib/special-event";
 import type { SpecialEventConfig } from "@/types/special-event";
 
@@ -65,9 +66,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Select at least one bread type." }, { status: 400 });
     }
 
+    const pickupParsed = parseSpecialEventPickupWindow(body?.pickupWindow);
+    if (!pickupParsed.valid) {
+      return NextResponse.json({ error: pickupParsed.error }, { status: 400 });
+    }
+
     const config: SpecialEventConfig = {
       date,
       productQuantities,
+      pickupWindow: pickupParsed.pickupWindow,
     };
 
     await setSpecialEvent(config);

@@ -1,6 +1,11 @@
 import { Order, Product } from "@/types/product";
-import type { LegacySpecialEventConfig, SpecialEventConfig } from "@/types/special-event";
-import { getTodayDateInPickupTz } from "@/lib/date";
+import type {
+  LegacySpecialEventConfig,
+  SpecialEventConfig,
+  SpecialEventPickupWindow,
+} from "@/types/special-event";
+import { DEFAULT_SPECIAL_EVENT_PICKUP_WINDOW } from "@/types/special-event";
+import { getTodayDateInPickupTz, parseTimeToMinutes } from "@/lib/date";
 
 export function normalizeSpecialEventConfig(
   stored: LegacySpecialEventConfig | SpecialEventConfig | null | undefined
@@ -11,6 +16,7 @@ export function normalizeSpecialEventConfig(
     return {
       date: stored.date,
       productQuantities: stored.productQuantities,
+      pickupWindow: normalizeSpecialEventPickupWindow(stored.pickupWindow),
       updatedAt: stored.updatedAt,
     };
   }
@@ -21,10 +27,49 @@ export function normalizeSpecialEventConfig(
     legacy.productIds.forEach((id) => {
       productQuantities[id] = legacy.maxQuantity!;
     });
-    return { date: stored.date, productQuantities, updatedAt: stored.updatedAt };
+    return {
+      date: stored.date,
+      productQuantities,
+      pickupWindow: normalizeSpecialEventPickupWindow(stored.pickupWindow),
+      updatedAt: stored.updatedAt,
+    };
   }
 
   return null;
+}
+
+export function normalizeSpecialEventPickupWindow(
+  window?: SpecialEventPickupWindow | null
+): SpecialEventPickupWindow {
+  const startTime = window?.startTime?.trim() || DEFAULT_SPECIAL_EVENT_PICKUP_WINDOW.startTime;
+  const endTime = window?.endTime?.trim() || DEFAULT_SPECIAL_EVENT_PICKUP_WINDOW.endTime;
+  return { startTime, endTime };
+}
+
+export function parseSpecialEventPickupWindow(
+  raw: unknown
+): { valid: true; pickupWindow: SpecialEventPickupWindow } | { valid: false; error: string } {
+  if (!raw || typeof raw !== "object") {
+    return { valid: true, pickupWindow: DEFAULT_SPECIAL_EVENT_PICKUP_WINDOW };
+  }
+  const startTime = typeof (raw as SpecialEventPickupWindow).startTime === "string"
+    ? (raw as SpecialEventPickupWindow).startTime.trim()
+    : "";
+  const endTime = typeof (raw as SpecialEventPickupWindow).endTime === "string"
+    ? (raw as SpecialEventPickupWindow).endTime.trim()
+    : "";
+  if (!startTime || !endTime) {
+    return { valid: false, error: "Pickup start and end times are required." };
+  }
+  const startMins = parseTimeToMinutes(startTime);
+  const endMins = parseTimeToMinutes(endTime);
+  if (startMins == null || endMins == null) {
+    return { valid: false, error: "Invalid pickup time format." };
+  }
+  if (startMins > endMins) {
+    return { valid: false, error: "Pickup start time must be before end time." };
+  }
+  return { valid: true, pickupWindow: { startTime, endTime } };
 }
 
 export function getSpecialEventProductIds(config: SpecialEventConfig): string[] {

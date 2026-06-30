@@ -713,9 +713,8 @@ export async function validatePickupSlot(
   let window = dateOverride ?? weekdayWindow;
 
   if (options?.specialEvent) {
-    if (!window || window.blocked) {
-      window = { startTime: "12:00 PM", endTime: "6:00 PM" };
-    }
+    const specialEvent = await getSpecialEvent();
+    window = specialEvent?.pickupWindow ?? { startTime: "12:00 PM", endTime: "6:00 PM" };
   } else if (!window || window.blocked) {
     return { valid: false, error: "Pickup is not available on this date. Please choose another date." };
   }

@@ -261,6 +261,8 @@ export default function AdminPage() {
   const [specialEventDate, setSpecialEventDate] = useState("");
   const [specialEventProductQuantities, setSpecialEventProductQuantities] = useState<Record<string, number>>({});
   const [specialEventSoldByProduct, setSpecialEventSoldByProduct] = useState<Record<string, number>>({});
+  const [specialEventPickupStart, setSpecialEventPickupStart] = useState("12:00 PM");
+  const [specialEventPickupEnd, setSpecialEventPickupEnd] = useState("6:00 PM");
   const [specialEventLoading, setSpecialEventLoading] = useState(false);
   const [specialEventSaving, setSpecialEventSaving] = useState(false);
 
@@ -953,11 +955,15 @@ export default function AdminPage() {
           setSpecialEventDate("");
           setSpecialEventProductQuantities({});
           setSpecialEventSoldByProduct({});
+          setSpecialEventPickupStart("12:00 PM");
+          setSpecialEventPickupEnd("6:00 PM");
           return;
         }
         setSpecialEventDate(data.date || "");
         setSpecialEventProductQuantities(data.productQuantities || {});
         setSpecialEventSoldByProduct(data.soldByProduct || {});
+        setSpecialEventPickupStart(data.pickupWindow?.startTime || "12:00 PM");
+        setSpecialEventPickupEnd(data.pickupWindow?.endTime || "6:00 PM");
       }
     } catch (error) {
       console.error("Error fetching special event:", error);
@@ -1002,6 +1008,13 @@ export default function AdminPage() {
       }
     }
 
+    const startIdx = PICKUP_TIME_OPTIONS.indexOf(specialEventPickupStart);
+    const endIdx = PICKUP_TIME_OPTIONS.indexOf(specialEventPickupEnd);
+    if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
+      alert("Pickup start time must be before or equal to end time.");
+      return;
+    }
+
     try {
       setSpecialEventSaving(true);
       const response = await fetch("/api/special-event", {
@@ -1010,6 +1023,10 @@ export default function AdminPage() {
         body: JSON.stringify({
           date: specialEventDate,
           productQuantities: specialEventProductQuantities,
+          pickupWindow: {
+            startTime: specialEventPickupStart,
+            endTime: specialEventPickupEnd,
+          },
         }),
       });
       const data = await response.json().catch(() => null);
@@ -1043,6 +1060,8 @@ export default function AdminPage() {
       setSpecialEventDate("");
       setSpecialEventProductQuantities({});
       setSpecialEventSoldByProduct({});
+      setSpecialEventPickupStart("12:00 PM");
+      setSpecialEventPickupEnd("6:00 PM");
     } catch (error) {
       console.error("Error clearing special event:", error);
       alert("Error clearing special event. Please try again.");
@@ -3349,7 +3368,7 @@ export default function AdminPage() {
               <p className="text-sm text-gray-600 mb-6">
                 Configure a one-day event. On the event date, a banner appears on the main page
                 with per-item availability. Orders with pickup on the event date count toward each
-                product&apos;s max.
+                product&apos;s max. Set a custom pickup window for event orders.
               </p>
               {specialEventLoading ? (
                 <p className="text-sm text-gray-600">Loading special event...</p>
@@ -3366,6 +3385,43 @@ export default function AdminPage() {
                       onChange={(e) => setSpecialEventDate(e.target.value)}
                       className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
                     />
+                  </div>
+
+                  <div>
+                    <p className="block text-sm font-medium text-gray-700 mb-2">Pickup time window</p>
+                    <div className="flex flex-wrap items-end gap-4">
+                      <label className="text-sm text-gray-700">
+                        Start
+                        <select
+                          value={PICKUP_TIME_OPTIONS.includes(specialEventPickupStart) ? specialEventPickupStart : "12:00 PM"}
+                          onChange={(e) => setSpecialEventPickupStart(e.target.value)}
+                          className="mt-1 block w-full min-w-[8rem] px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                        >
+                          {PICKUP_TIME_OPTIONS.map((t) => (
+                            <option key={`se-start-${t}`} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-sm text-gray-700">
+                        End
+                        <select
+                          value={PICKUP_TIME_OPTIONS.includes(specialEventPickupEnd) ? specialEventPickupEnd : "6:00 PM"}
+                          onChange={(e) => setSpecialEventPickupEnd(e.target.value)}
+                          className="mt-1 block w-full min-w-[8rem] px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                        >
+                          {PICKUP_TIME_OPTIONS.map((t) => (
+                            <option key={`se-end-${t}`} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Customers choose a 30-minute slot within this window on the special event checkout page.
+                    </p>
                   </div>
 
                   <div>
