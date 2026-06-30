@@ -216,6 +216,7 @@ export default function AdminPage() {
       milk: false,
       egg: false,
       sesame: false,
+      soy: false,
     },
     limitedTime: false,
     newProduct: false,
@@ -669,7 +670,7 @@ export default function AdminPage() {
           inStock: newProduct.inStock ?? true,
           loafType: newProduct.loafType,
           allergens:
-            newProduct.allergens || { wheat: false, dairy: false, milk: false, egg: false, sesame: false },
+            newProduct.allergens || { wheat: false, dairy: false, milk: false, egg: false, sesame: false, soy: false },
           limitedTime: newProduct.limitedTime ?? false,
           newProduct: newProduct.newProduct ?? false,
           bakersFavorite: newProduct.bakersFavorite ?? false,
@@ -2252,6 +2253,23 @@ export default function AdminPage() {
                               />
                               <span className="text-sm text-gray-700">Sesame</span>
                             </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={newProduct.allergens?.soy ?? false}
+                                onChange={(e) =>
+                                  setNewProduct({
+                                    ...newProduct,
+                                    allergens: {
+                                      ...newProduct.allergens,
+                                      soy: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="w-4 h-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm text-gray-700">Soy</span>
+                            </label>
                           </div>
                         </div>
                       </div>
@@ -2275,7 +2293,7 @@ export default function AdminPage() {
                               ingredients: "",
                               inStock: true,
                               loafType: undefined,
-                              allergens: { wheat: false, dairy: false, milk: false, egg: false, sesame: false },
+                              allergens: { wheat: false, dairy: false, milk: false, egg: false, sesame: false, soy: false },
                               limitedTime: false,
                               newProduct: false,
                               bakersFavorite: false,
@@ -2608,6 +2626,23 @@ export default function AdminPage() {
                                   className="w-4 h-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                                 />
                                 <span className="text-sm text-gray-700">Sesame</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={editingProduct.allergens?.soy ?? false}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      allergens: {
+                                        ...editingProduct.allergens,
+                                        soy: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-4 h-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm text-gray-700">Soy</span>
                               </label>
                             </div>
                           </div>

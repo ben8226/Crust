@@ -146,7 +146,8 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
             product.allergens.dairy ||
             product.allergens.milk ||
             product.allergens.egg ||
-            product.allergens.sesame) && (
+            product.allergens.sesame ||
+            product.allergens.soy) && (
           <div className="flex flex-wrap gap-1 mt-2">
             <span className="text-xs font-medium text-gray-700">Contains: </span>
             {product.allergens.wheat && (
@@ -163,6 +164,9 @@ export default function ProductCard({ product, availableBreads = [] }: ProductCa
             )}
             {product.allergens.sesame && (
               <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">Sesame</span>
+            )}
+            {product.allergens.soy && (
+              <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">Soy</span>
             )}
           </div>
         )}
