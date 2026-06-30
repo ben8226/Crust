@@ -180,7 +180,7 @@ export default async function Home() {
       <Navbar />
       {showSpecialEventBanner && specialEvent && (
         <>
-          <div className="bg-amber-500 text-white py-3">
+          <div className="relative z-[60] bg-amber-500 text-white py-3">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
               <p className="text-sm sm:text-base font-semibold">
                 Special Event Today, {formatSpecialEventBannerDate(specialEvent.date)}!

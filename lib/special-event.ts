@@ -1,6 +1,6 @@
 import { Order, Product } from "@/types/product";
 import type { LegacySpecialEventConfig, SpecialEventConfig } from "@/types/special-event";
-import { formatDateInput } from "@/lib/date";
+import { getTodayDateInPickupTz } from "@/lib/date";
 
 export function normalizeSpecialEventConfig(
   stored: LegacySpecialEventConfig | SpecialEventConfig | null | undefined
@@ -55,7 +55,7 @@ export function countSpecialEventSoldByProduct(
 
 export function isSpecialEventToday(config: SpecialEventConfig | null): boolean {
   if (!config?.date?.trim()) return false;
-  return config.date === formatDateInput(new Date());
+  return config.date === getTodayDateInPickupTz();
 }
 
 export function buildSpecialEventBannerLines(
