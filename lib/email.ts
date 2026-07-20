@@ -107,6 +107,26 @@ function buildHtml(order: Order, breadNames: Map<string, string>): string {
             ${itemsHtml}
           </tbody>
           <tfoot>
+            ${
+              order.couponCode && order.discount != null && order.discount > 0
+                ? `
+            <tr>
+              <td style="padding:12px 0 4px 0; text-align:right; color:#555;">Subtotal</td>
+              <td style="padding:12px 0 4px 0; text-align:right; color:#555; white-space:nowrap;">
+                $${(order.total + order.discount).toFixed(2)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0; text-align:right; color:#15803d;">
+                Discount (${escapeHtml(order.couponCode)})
+              </td>
+              <td style="padding:4px 0; text-align:right; color:#15803d; white-space:nowrap;">
+                −$${order.discount.toFixed(2)}
+              </td>
+            </tr>
+            `
+                : ""
+            }
             <tr>
               <td style="padding:12px 0; text-align:right; font-weight:700;">Total</td>
               <td style="padding:12px 0; text-align:right; font-weight:800; white-space:nowrap;">
@@ -159,6 +179,10 @@ function buildText(order: Order, breadNames: Map<string, string>): string {
     }
   });
   lines.push("");
+  if (order.couponCode && order.discount != null && order.discount > 0) {
+    lines.push(`Subtotal: $${(order.total + order.discount).toFixed(2)}`);
+    lines.push(`Discount (${order.couponCode}): −$${order.discount.toFixed(2)}`);
+  }
   lines.push(`Total: $${order.total.toFixed(2)}`);
   if (process.env.NEXT_PUBLIC_PICKUP_ADDRESS) {
     lines.push("");

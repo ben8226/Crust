@@ -1825,6 +1825,14 @@ export default function AdminPage() {
                             <p className="text-xl font-bold text-gray-900">
                               ${order.total.toFixed(2)}
                             </p>
+                            {order.couponCode && (
+                              <p className="text-sm text-green-700 mt-1">
+                                Code: {order.couponCode}
+                                {order.discount != null && order.discount > 0
+                                  ? ` (−$${order.discount.toFixed(2)})`
+                                  : ""}
+                              </p>
+                            )}
                           </div>
                           {order.heardAboutUs && (
                             <div className="md:col-span-2">
