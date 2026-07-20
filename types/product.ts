@@ -49,6 +49,8 @@ export interface Order {
   cancelled?: boolean; // Whether the order has been cancelled
   cancelledDate?: string; // Date when order was cancelled
   review?: string; // Optional customer review
+  couponCode?: string;
+  discount?: number;
   // Optional fields for backward compatibility with old orders
   email?: string;
   address?: string;

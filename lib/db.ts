@@ -4,7 +4,9 @@ import type { TextLogEntry } from "@/types/texts";
 import { UpdateEntry } from "@/types/update";
 import type { SettingEntry } from "@/types/settings";
 import type { SpecialEventConfig, LegacySpecialEventConfig } from "@/types/special-event";
+import type { Coupon } from "@/types/coupon";
 import { normalizeSpecialEventConfig } from "@/lib/special-event";
+import { normalizeCouponCode } from "@/lib/coupon";
 import { parseTimeToMinutes, formatMinutesToTime } from "@/lib/date";
 
 /** Redis key for app settings ("Settings" table). */
@@ -17,6 +19,8 @@ const MAX_TEXTS_ENTRIES = 300;
 /** Redis key for inbound SMS replies ("TextReplys"). */
 const TEXT_REPLIES_REDIS_KEY = "textReplys";
 const MAX_TEXT_REPLY_ENTRIES = 500;
+
+const COUPONS_REDIS_KEY = "coupons";
 
 // Pickup time window configuration for a single day
 export interface PickupTimeWindow {
@@ -995,6 +999,77 @@ export async function deleteGalleryImage(imageId: string): Promise<boolean> {
     console.error("Error deleting gallery image:", error);
     throw error;
   }
+}
+
+function generateCouponId(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let id = "CPN-";
+  for (let i = 0; i < 6; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
+}
+
+export async function getCoupons(): Promise<Coupon[]> {
+  try {
+    const redis = await getRedis();
+    if (!redis) return [];
+    const coupons = await redis.get<Coupon[]>(COUPONS_REDIS_KEY);
+    return coupons || [];
+  } catch (error) {
+    console.error("Error reading coupons:", error);
+    return [];
+  }
+}
+
+export async function getCouponByCode(code: string): Promise<Coupon | null> {
+  const normalized = normalizeCouponCode(code);
+  if (!normalized) return null;
+  const coupons = await getCoupons();
+  return (
+    coupons.find(
+      (c) => normalizeCouponCode(c.code) === normalized && c.active !== false
+    ) || null
+  );
+}
+
+export async function addCoupon(
+  input: Omit<Coupon, "id" | "createdAt" | "code"> & { code: string }
+): Promise<Coupon> {
+  const redis = await getRedis();
+  if (!redis) throw new Error("Redis not configured");
+
+  const code = normalizeCouponCode(input.code);
+  if (!code) throw new Error("Coupon code is required");
+
+  const coupons = await getCoupons();
+  if (coupons.some((c) => normalizeCouponCode(c.code) === code)) {
+    throw new Error("A coupon with this code already exists");
+  }
+
+  const coupon: Coupon = {
+    id: generateCouponId(),
+    code,
+    type: input.type,
+    value: input.value,
+    active: input.active !== false,
+    createdAt: new Date().toISOString(),
+  };
+
+  coupons.unshift(coupon);
+  await redis.set(COUPONS_REDIS_KEY, coupons);
+  return coupon;
+}
+
+export async function deleteCoupon(id: string): Promise<boolean> {
+  const redis = await getRedis();
+  if (!redis) throw new Error("Redis not configured");
+
+  const coupons = await getCoupons();
+  const next = coupons.filter((c) => c.id !== id);
+  if (next.length === coupons.length) return false;
+  await redis.set(COUPONS_REDIS_KEY, next);
+  return true;
 }
 
 

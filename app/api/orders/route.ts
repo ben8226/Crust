@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveOrder, getOrders, validatePickupSlot, getSpecialEvent } from "@/lib/db";
+import { saveOrder, getOrders, validatePickupSlot, getSpecialEvent, getCouponByCode } from "@/lib/db";
 import { Order } from "@/types/product";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import {
@@ -7,6 +7,7 @@ import {
   getSpecialEventProductIds,
   validateSpecialEventOrder,
 } from "@/lib/special-event";
+import { applyCouponToTotal, normalizeCouponCode } from "@/lib/coupon";
 
 /** Normalize phone to 10 digits, then format as +1 (XXX) XXX-XXXX for storage. */
 function formatPhoneForStorage(phone: string): string {
@@ -90,19 +91,50 @@ export async function POST(request: Request) {
       return id;
     };
 
+    const subtotal = body.items.reduce(
+      (
+        sum: number,
+        item: { product?: { price?: number }; quantity?: number; cut?: boolean }
+      ) =>
+        sum +
+        (Number(item.product?.price) || 0) * (Number(item.quantity) || 0) +
+        (item.cut ? 1 * (Number(item.quantity) || 0) : 0),
+      0
+    );
+
+    let total = Math.round(subtotal * 100) / 100;
+    let couponCode: string | undefined;
+    let discount: number | undefined;
+
+    const requestedCode = normalizeCouponCode(
+      typeof body.couponCode === "string" ? body.couponCode : ""
+    );
+    if (requestedCode) {
+      const coupon = await getCouponByCode(requestedCode);
+      if (!coupon) {
+        return NextResponse.json({ error: "Invalid or inactive coupon code." }, { status: 400 });
+      }
+      const applied = applyCouponToTotal(subtotal, coupon);
+      couponCode = coupon.code;
+      discount = applied.discount;
+      total = applied.total;
+    }
+
     // Create order object (store phone in +1 (XXX) XXX-XXXX format)
     const order: Order = {
       id: generateOrderId(),
       items: body.items,
       customerName: body.customerName,
       phone: formatPhoneForStorage(body.phone),
-      total: body.total,
+      total,
       date: new Date().toISOString(),
       paymentMethod: body.paymentMethod || "cash", // Default to cash if not provided
       pickupDate: body.pickupDate,
       pickupTime: body.pickupTime,
       email: body.email, // Optional email for order confirmation
       heardAboutUs: body.heardAboutUs,
+      couponCode,
+      discount,
     };
 
     // Save order

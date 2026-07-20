@@ -9,6 +9,17 @@ import { useRouter } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { formatDateInput, parseTimeToMinutes, formatMinutesToTime } from "@/lib/date";
+import type { CouponDiscountType } from "@/types/coupon";
+
+const APPLIED_COUPON_STORAGE_KEY = "appliedCoupon";
+
+interface AppliedCoupon {
+  code: string;
+  type: CouponDiscountType;
+  value: number;
+  discount: number;
+  total: number;
+}
 
 export default function CheckoutPage() {
   const { cart, getTotalPrice, clearCart } = useCart();
@@ -29,7 +40,12 @@ export default function CheckoutPage() {
   const [cutEarliestPickupTime, setCutEarliestPickupTime] = useState("2:00 PM");
   const [pickupWindowDates, setPickupWindowDates] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }>>({});
   const [phoneError, setPhoneError] = useState<string>("");
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
+
+  const subtotal = getTotalPrice();
+  const discount = appliedCoupon?.discount ?? 0;
+  const orderTotal = Math.max(0, subtotal - discount);
 
   // Calculate min and max dates (2 days from today to one month in future)
   const minDate = new Date();
@@ -163,6 +179,54 @@ export default function CheckoutPage() {
     }
   }, []);
 
+  // Restore / revalidate coupon from cart
+  useEffect(() => {
+    const saved = localStorage.getItem(APPLIED_COUPON_STORAGE_KEY);
+    if (!saved) {
+      setAppliedCoupon(null);
+      return;
+    }
+
+    let parsed: AppliedCoupon | null = null;
+    try {
+      parsed = JSON.parse(saved);
+    } catch {
+      localStorage.removeItem(APPLIED_COUPON_STORAGE_KEY);
+      return;
+    }
+    if (!parsed?.code) return;
+
+    const revalidate = async () => {
+      try {
+        const response = await fetch("/api/coupons/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: parsed!.code, subtotal }),
+        });
+        if (!response.ok) {
+          localStorage.removeItem(APPLIED_COUPON_STORAGE_KEY);
+          setAppliedCoupon(null);
+          return;
+        }
+        const data = await response.json();
+        const next: AppliedCoupon = {
+          code: data.code,
+          type: data.type,
+          value: data.value,
+          discount: data.discount,
+          total: data.total,
+        };
+        setAppliedCoupon(next);
+        localStorage.setItem(APPLIED_COUPON_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        setAppliedCoupon(parsed);
+      }
+    };
+
+    revalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal]);
+
   // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
@@ -293,10 +357,11 @@ export default function CheckoutPage() {
           phone: phoneDigits,
           email: formData.email,
           heardAboutUs: formData.heardAboutUs || undefined,
-          total: getTotalPrice(),
+          total: orderTotal,
           paymentMethod: paymentMethod,
           pickupDate: getDateString(pickupDate),
           pickupTime: pickupTime,
+          couponCode: appliedCoupon?.code,
         }),
       });
 
@@ -309,6 +374,7 @@ export default function CheckoutPage() {
 
       // Clear cart and redirect
       clearCart();
+      localStorage.removeItem(APPLIED_COUPON_STORAGE_KEY);
       router.push(`/order-confirmation?id=${order.id}`);
     } catch (error) {
       console.error("Error submitting order:", error);
@@ -554,9 +620,19 @@ export default function CheckoutPage() {
                     )}
                   </div>
                 ))}
-                <div className="border-t pt-3 flex justify-between text-xl font-bold text-gray-900">
+                <div className="border-t pt-3 flex justify-between text-gray-700">
+                  <span>Subtotal</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                {appliedCoupon && discount > 0 && (
+                  <div className="flex justify-between text-green-700 text-sm">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>−${discount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xl font-bold text-gray-900">
                   <span>Total</span>
-                  <span>${getTotalPrice().toFixed(2)}</span>
+                  <span>${orderTotal.toFixed(2)}</span>
                 </div>
                 <div className="pt-3 border-t">
                   <p className="text-sm text-gray-600">Payment Method</p>

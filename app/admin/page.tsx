@@ -9,6 +9,7 @@ import { Order, Product } from "@/types/product";
 import { UpdateEntry } from "@/types/update";
 import { TEXTING_MESSAGE_SETTING_LABEL, TEXTS_REMAINING_SETTING_LABEL } from "@/types/settings";
 import type { TextReplyEntry } from "@/types/text-reply";
+import type { Coupon, CouponDiscountType } from "@/types/coupon";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
 import { formatDateInput, formatPickupDisplay, parseLocalDateString } from "@/lib/date";
@@ -27,7 +28,7 @@ const PICKUP_TIME_OPTIONS: string[] = (() => {
   return options;
 })();
 
-type Tab = "orders" | "products" | "calendar" | "gallery" | "texts" | "updates" | "customers" | "special-event";
+type Tab = "orders" | "products" | "calendar" | "gallery" | "texts" | "updates" | "customers" | "special-event" | "codes";
 
 function PickupWindowDateModal({
   date,
@@ -267,6 +268,14 @@ export default function AdminPage() {
   const [specialEventLoading, setSpecialEventLoading] = useState(false);
   const [specialEventSaving, setSpecialEventSaving] = useState(false);
 
+  // Coupons / codes
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponSaving, setCouponSaving] = useState(false);
+  const [newCouponCode, setNewCouponCode] = useState("");
+  const [newCouponType, setNewCouponType] = useState<CouponDiscountType>("percent");
+  const [newCouponValue, setNewCouponValue] = useState("");
+
   // Customers state (derived from orders, keyed by phone)
   const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<{ name: string; phone: string; email: string } | null>(null);
@@ -338,6 +347,8 @@ export default function AdminPage() {
     } else if (activeTab === "special-event") {
       fetchSpecialEvent();
       fetchProducts();
+    } else if (activeTab === "codes") {
+      fetchCoupons();
     }
   }, [activeTab, textsSubTab]);
 
@@ -1071,6 +1082,81 @@ export default function AdminPage() {
     }
   };
 
+  const fetchCoupons = async () => {
+    try {
+      setCouponsLoading(true);
+      const response = await fetch("/api/coupons");
+      if (response.ok) {
+        const data = await response.json();
+        setCoupons(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error("Error fetching coupons:", error);
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
+  const handleCreateCoupon = async () => {
+    const code = newCouponCode.trim();
+    const value = Number(newCouponValue);
+    if (!code) {
+      alert("Please enter a coupon code.");
+      return;
+    }
+    if (!Number.isFinite(value) || value <= 0) {
+      alert("Please enter a valid discount amount greater than 0.");
+      return;
+    }
+    if (newCouponType === "percent" && value > 100) {
+      alert("Percentage cannot exceed 100.");
+      return;
+    }
+
+    try {
+      setCouponSaving(true);
+      const response = await fetch("/api/coupons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          type: newCouponType,
+          value,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        alert(data?.error || "Failed to create coupon");
+        return;
+      }
+      setNewCouponCode("");
+      setNewCouponValue("");
+      setNewCouponType("percent");
+      await fetchCoupons();
+    } catch (error) {
+      console.error("Error creating coupon:", error);
+      alert("Error creating coupon. Please try again.");
+    } finally {
+      setCouponSaving(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string, code: string) => {
+    if (!confirm(`Delete coupon code "${code}"?`)) return;
+    try {
+      const response = await fetch(`/api/coupons/${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        alert(data?.error || "Failed to delete coupon");
+        return;
+      }
+      await fetchCoupons();
+    } catch (error) {
+      console.error("Error deleting coupon:", error);
+      alert("Error deleting coupon. Please try again.");
+    }
+  };
+
   const getEffectiveWindowForDate = (date: Date) => {
     const dateStr = formatDateInput(date);
     const override = pickupWindowDates[dateStr];
@@ -1530,6 +1616,16 @@ export default function AdminPage() {
                     }`}
                   >
                     Special Event
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("codes")}
+                    className={`px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      activeTab === "codes"
+                        ? "border-brown-600 text-brown-600"
+                        : "border-transparent text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Codes
                   </button>
                 </div>
               </div>
@@ -3529,6 +3625,139 @@ export default function AdminPage() {
                       Clear event
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Codes Tab */}
+        {activeTab === "codes" && (
+          <div className="max-w-3xl space-y-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Coupon Codes</h2>
+              <p className="text-sm text-gray-600 mb-6">
+                Create a code customers can enter on the cart page. Choose a percentage off
+                (rounded up to the nearest dollar) or a fixed dollar amount off.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="coupon-code" className="block text-sm font-medium text-gray-700 mb-1">
+                    Code
+                  </label>
+                  <input
+                    id="coupon-code"
+                    type="text"
+                    value={newCouponCode}
+                    onChange={(e) => setNewCouponCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. SPRING10"
+                    className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent uppercase"
+                  />
+                </div>
+
+                <div>
+                  <p className="block text-sm font-medium text-gray-700 mb-2">Discount type</p>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="couponType"
+                        checked={newCouponType === "percent"}
+                        onChange={() => setNewCouponType("percent")}
+                        className="w-4 h-4 text-brown-600 focus:ring-brown-500"
+                      />
+                      <span className="text-sm text-gray-700">Percentage off</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="couponType"
+                        checked={newCouponType === "fixed"}
+                        onChange={() => setNewCouponType("fixed")}
+                        className="w-4 h-4 text-brown-600 focus:ring-brown-500"
+                      />
+                      <span className="text-sm text-gray-700">Dollar amount off</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="coupon-value" className="block text-sm font-medium text-gray-700 mb-1">
+                    {newCouponType === "percent" ? "Percent off" : "Amount off ($)"}
+                  </label>
+                  <input
+                    id="coupon-value"
+                    type="number"
+                    min={0.01}
+                    max={newCouponType === "percent" ? 100 : undefined}
+                    step={newCouponType === "percent" ? 1 : 0.01}
+                    value={newCouponValue}
+                    onChange={(e) => setNewCouponValue(e.target.value)}
+                    placeholder={newCouponType === "percent" ? "10" : "5.00"}
+                    className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCreateCoupon}
+                  disabled={couponSaving}
+                  className="bg-brown-600 text-white px-4 py-2 rounded-lg hover:bg-brown-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {couponSaving ? "Creating..." : "Create code"}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Existing codes</h3>
+              {couponsLoading ? (
+                <p className="text-sm text-gray-600">Loading codes...</p>
+              ) : coupons.length === 0 ? (
+                <p className="text-sm text-gray-600">No coupon codes yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-left text-gray-600">
+                        <th className="py-2 pr-4 font-medium">Code</th>
+                        <th className="py-2 pr-4 font-medium">Discount</th>
+                        <th className="py-2 pr-4 font-medium">Created</th>
+                        <th className="py-2 font-medium" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coupons.map((coupon) => (
+                        <tr key={coupon.id} className="border-b border-gray-100">
+                          <td className="py-3 pr-4 font-semibold text-gray-900">{coupon.code}</td>
+                          <td className="py-3 pr-4 text-gray-700">
+                            {coupon.type === "percent"
+                              ? `${coupon.value}% off`
+                              : `$${Number(coupon.value).toFixed(2)} off`}
+                          </td>
+                          <td className="py-3 pr-4 text-gray-500">
+                            {coupon.createdAt
+                              ? new Date(coupon.createdAt).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })
+                              : "—"}
+                          </td>
+                          <td className="py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCoupon(coupon.id, coupon.code)}
+                              className="text-red-600 hover:text-red-700 font-medium"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

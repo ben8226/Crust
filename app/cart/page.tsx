@@ -7,11 +7,30 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import Image from "next/image";
 import { Product } from "@/types/product";
+import type { CouponDiscountType } from "@/types/coupon";
+
+const APPLIED_COUPON_STORAGE_KEY = "appliedCoupon";
+
+export interface AppliedCoupon {
+  code: string;
+  type: CouponDiscountType;
+  value: number;
+  discount: number;
+  total: number;
+}
 
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, toggleCut, getTotalPrice, clearCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "venmo">("cash");
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponApplying, setCouponApplying] = useState(false);
+
+  const subtotal = getTotalPrice();
+  const discount = appliedCoupon?.discount ?? 0;
+  const orderTotal = Math.max(0, subtotal - discount);
 
   // Fetch all products to get bread names for mini loaf boxes
   useEffect(() => {
@@ -46,6 +65,101 @@ export default function CartPage() {
   useEffect(() => {
     localStorage.setItem("paymentMethod", paymentMethod);
   }, [paymentMethod]);
+
+  // Restore applied coupon and revalidate against current subtotal
+  useEffect(() => {
+    const saved = localStorage.getItem(APPLIED_COUPON_STORAGE_KEY);
+    if (!saved) return;
+
+    let parsed: AppliedCoupon | null = null;
+    try {
+      parsed = JSON.parse(saved);
+    } catch {
+      localStorage.removeItem(APPLIED_COUPON_STORAGE_KEY);
+      return;
+    }
+    if (!parsed?.code) return;
+
+    const revalidate = async () => {
+      try {
+        const response = await fetch("/api/coupons/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: parsed!.code, subtotal }),
+        });
+        if (!response.ok) {
+          localStorage.removeItem(APPLIED_COUPON_STORAGE_KEY);
+          setAppliedCoupon(null);
+          return;
+        }
+        const data = await response.json();
+        const next: AppliedCoupon = {
+          code: data.code,
+          type: data.type,
+          value: data.value,
+          discount: data.discount,
+          total: data.total,
+        };
+        setAppliedCoupon(next);
+        setCouponInput(data.code);
+        localStorage.setItem(APPLIED_COUPON_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // keep previously saved display if network fails
+        setAppliedCoupon(parsed);
+        setCouponInput(parsed.code);
+      }
+    };
+
+    revalidate();
+    // Only re-run when cart subtotal changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal]);
+
+  const handleApplyCoupon = async () => {
+    setCouponError("");
+    if (!couponInput.trim()) {
+      setCouponError("Enter a coupon code.");
+      return;
+    }
+
+    try {
+      setCouponApplying(true);
+      const response = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponInput, subtotal }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setAppliedCoupon(null);
+        localStorage.removeItem(APPLIED_COUPON_STORAGE_KEY);
+        setCouponError(data?.error || "Invalid coupon code.");
+        return;
+      }
+      const next: AppliedCoupon = {
+        code: data.code,
+        type: data.type,
+        value: data.value,
+        discount: data.discount,
+        total: data.total,
+      };
+      setAppliedCoupon(next);
+      setCouponInput(data.code);
+      localStorage.setItem(APPLIED_COUPON_STORAGE_KEY, JSON.stringify(next));
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      setCouponError("Could not apply coupon. Please try again.");
+    } finally {
+      setCouponApplying(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+    localStorage.removeItem(APPLIED_COUPON_STORAGE_KEY);
+  };
 
   if (cart.length === 0) {
     return (
@@ -165,11 +279,6 @@ export default function CartPage() {
                         />
                         <span>Pre-sliced (+$1)</span>
                       </label>
-                      {item.cut && (
-                        <p className="mt-1 text-xs sm:text-sm text-yellow-600">
-                          *bread baked 1 day prior to pickup*
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -198,13 +307,69 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between text-gray-700">
                   <span>Subtotal</span>
-                  <span>${getTotalPrice().toFixed(2)}</span>
+                  <span>${subtotal.toFixed(2)}</span>
                 </div>
+                {appliedCoupon && discount > 0 && (
+                  <div className="flex justify-between text-green-700">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>−${discount.toFixed(2)}</span>
+                  </div>
+                )}
                
                 <div className="border-t pt-3 flex justify-between text-xl font-bold text-gray-900">
                   <span>Total</span>
-                  <span>${getTotalPrice().toFixed(2)}</span>
+                  <span>${orderTotal.toFixed(2)}</span>
                 </div>
+              </div>
+
+              <div className="mb-6">
+                <label htmlFor="cart-coupon" className="block text-sm font-medium text-gray-700 mb-2">
+                  Coupon code <span className="font-normal text-gray-400">(optional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="cart-coupon"
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value.toUpperCase());
+                      setCouponError("");
+                    }}
+                    placeholder="Enter code"
+                    disabled={!!appliedCoupon}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent uppercase disabled:bg-gray-50"
+                  />
+                  {appliedCoupon ? (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="px-3 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={couponApplying}
+                      className="px-3 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 text-sm font-medium disabled:opacity-50"
+                    >
+                      {couponApplying ? "..." : "Apply"}
+                    </button>
+                  )}
+                </div>
+                {couponError && (
+                  <p className="text-sm text-red-600 mt-1" role="alert">
+                    {couponError}
+                  </p>
+                )}
+                {appliedCoupon && (
+                  <p className="text-xs text-green-700 mt-1">
+                    {appliedCoupon.type === "percent"
+                      ? `${appliedCoupon.value}% off applied`
+                      : `$${Number(appliedCoupon.value).toFixed(2)} off applied`}
+                  </p>
+                )}
               </div>
               
               <div className="mb-6">
@@ -255,5 +420,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-
