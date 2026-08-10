@@ -7,7 +7,6 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { formatDateInput, parseTimeToMinutes, formatMinutesToTime } from "@/lib/date";
 import { FULL_NAME_REQUIRED_MESSAGE, isFullName } from "@/lib/validation";
 import type { CouponDiscountType } from "@/types/coupon";
@@ -538,6 +537,7 @@ export default function CheckoutPage() {
                   <option value="crystal-community-page">Facebook: Crystal Community Page</option>
                   <option value="yard-sign">Yard Sign</option>
                   <option value="friend/family">Friend / Family</option>
+                  <option value="risor-apple-valley-55+">Risor Apple Valley 55+</option>
                   
                 </select>
               </div>              
