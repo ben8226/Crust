@@ -1,14 +1,17 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getUpdates } from "@/lib/db";
+import { formatPickupDisplay, parseLocalDateString } from "@/lib/date";
 
 export const revalidate = 60; // cache briefly
 
 export default async function UpdatesPage() {
   const updates = await getUpdates();
-  const sorted = [...updates].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  const sorted = [...updates].sort((a, b) => {
+    const aTime = parseLocalDateString(a.date)?.getTime() ?? 0;
+    const bTime = parseLocalDateString(b.date)?.getTime() ?? 0;
+    return bTime - aTime;
+  });
 
   return (
     <div className="min-h-screen bg-tan-200">
@@ -36,7 +39,7 @@ export default async function UpdatesPage() {
                       v{entry.version}
                     </span>
                     <span className="text-sm text-gray-600">
-                      {new Date(entry.date).toLocaleDateString("en-US", {
+                      {formatPickupDisplay(entry.date, {
                         month: "short",
                         day: "numeric",
                         year: "numeric",

@@ -4056,7 +4056,7 @@ export default function AdminPage() {
                                 v{entry.version}
                               </span>
                               <span className="text-sm text-gray-600">
-                                {new Date(entry.date).toLocaleDateString("en-US", {
+                                {formatPickupDisplay(entry.date, {
                                   month: "short",
                                   day: "numeric",
                                   year: "numeric",
