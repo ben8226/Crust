@@ -58,6 +58,15 @@ export async function PATCH(
       }
     }
 
+    if (typeof body.cancelled === "boolean") {
+      updates.cancelled = body.cancelled;
+      if (body.cancelled) {
+        updates.cancelledDate = new Date().toISOString();
+      } else {
+        updates.cancelledDate = undefined;
+      }
+    }
+
     // Allow updating customer info (e.g. from Admin Customers tab)
     if (typeof body.customerName === "string" && body.customerName.trim()) {
       updates.customerName = body.customerName.trim();
@@ -67,6 +76,13 @@ export async function PATCH(
     }
     if (typeof body.email === "string") {
       updates.email = body.email.trim() || undefined;
+    }
+
+    if (typeof body.pickupDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.pickupDate.trim())) {
+      updates.pickupDate = body.pickupDate.trim();
+    }
+    if (typeof body.pickupTime === "string" && body.pickupTime.trim()) {
+      updates.pickupTime = body.pickupTime.trim();
     }
 
     // Allow updating overall review

@@ -13,6 +13,7 @@ import {
   buildPickupTimeSlots,
 } from "@/lib/date";
 import { getSpecialEventOrderLimit } from "@/lib/special-event";
+import { FULL_NAME_REQUIRED_MESSAGE, isFullName } from "@/lib/validation";
 import { DEFAULT_SPECIAL_EVENT_PICKUP_WINDOW } from "@/types/special-event";
 
 interface SpecialEventData {
@@ -40,6 +41,7 @@ export default function SpecialEventCheckoutPage() {
   const [pickupTime, setPickupTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneError, setPhoneError] = useState("");
+  const [nameError, setNameError] = useState("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
   const pickupDate = eventData?.date ? parseLocalDateString(eventData.date) : null;
@@ -177,12 +179,22 @@ export default function SpecialEventCheckoutPage() {
     if (e.target.name === "phone") {
       handlePhoneChange(e.target.value);
     } else {
+      if (e.target.name === "customerName") {
+        setNameError(
+          e.target.value.trim() && !isFullName(e.target.value) ? FULL_NAME_REQUIRED_MESSAGE : ""
+        );
+      }
       setFormData({ ...formData, [e.target.name]: e.target.value });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isFullName(formData.customerName)) {
+      setNameError(FULL_NAME_REQUIRED_MESSAGE);
+      return;
+    }
 
     if (!eventData?.isActiveToday || !eventData.date) {
       alert("Today's special event is not available for ordering.");
@@ -376,8 +388,17 @@ export default function SpecialEventCheckoutPage() {
                   required
                   value={formData.customerName}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent ${
+                    nameError ? "border-red-500" : "border-gray-300"
+                  }`}
+                  aria-invalid={!!nameError}
+                  aria-describedby={nameError ? "name-error" : undefined}
                 />
+                {nameError && (
+                  <p id="name-error" className="text-red-600 text-sm mt-1" role="alert">
+                    {nameError}
+                  </p>
+                )}
               </div>
 
               <div>

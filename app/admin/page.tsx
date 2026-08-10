@@ -7,12 +7,12 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Order, Product } from "@/types/product";
 import { UpdateEntry } from "@/types/update";
-import { TEXTING_MESSAGE_SETTING_LABEL, TEXTS_REMAINING_SETTING_LABEL } from "@/types/settings";
+import { TEXTING_MESSAGE_SETTING_LABEL, TEXTS_REMAINING_SETTING_LABEL, REQUESTED_UPDATES_SETTING_LABEL } from "@/types/settings";
 import type { TextReplyEntry } from "@/types/text-reply";
 import type { Coupon, CouponDiscountType } from "@/types/coupon";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
-import { formatDateInput, formatPickupDisplay, parseLocalDateString } from "@/lib/date";
+import { formatDateInput, formatPickupDisplay, parseLocalDateString, toTimeInputValue, fromTimeInputValue } from "@/lib/date";
 
 // 30-min slots from 8:00 AM to 10:00 PM for pickup time dropdowns
 const PICKUP_TIME_OPTIONS: string[] = (() => {
@@ -142,6 +142,92 @@ function PickupWindowDateModal({
   );
 }
 
+function EditOrderPickupModal({
+  order,
+  saving,
+  onClose,
+  onSave,
+}: {
+  order: Order;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (pickupDate: string, pickupTime: string) => void;
+}) {
+  const [pickupDate, setPickupDate] = useState(order.pickupDate || "");
+  const [pickupTime, setPickupTime] = useState(toTimeInputValue(order.pickupTime || "") || "12:00");
+
+  const handleSave = () => {
+    if (!pickupDate) {
+      alert("Please select a pickup date.");
+      return;
+    }
+    const formattedTime = fromTimeInputValue(pickupTime);
+    if (!formattedTime) {
+      alert("Please select a pickup time.");
+      return;
+    }
+    onSave(pickupDate, formattedTime);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Edit pickup</h3>
+        <p className="text-sm text-gray-600 mb-4">Order #{order.id}</p>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="edit-pickup-date" className="block text-sm font-medium text-gray-700 mb-1">
+              Date
+            </label>
+            <input
+              id="edit-pickup-date"
+              type="date"
+              value={pickupDate}
+              onChange={(e) => setPickupDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-pickup-time" className="block text-sm font-medium text-gray-700 mb-1">
+              Time
+            </label>
+            <input
+              id="edit-pickup-time"
+              type="time"
+              step={60}
+              value={pickupTime}
+              onChange={(e) => setPickupTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">Any date and any time down to the minute.</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function deriveDisplayConfigFromProducts(products: Product[]) {
   const categoryPriority: Record<string, number> = {
     "Sourdough Bread": 0,
@@ -181,6 +267,8 @@ export default function AdminPage() {
   const [filter, setFilter] = useState<"all" | "pending" | "completed" | "cancelled" | "today" | "tomorrow">("pending");
   const [updatingOrders, setUpdatingOrders] = useState<Set<string>>(new Set());
   const [deletingOrders, setDeletingOrders] = useState<Set<string>>(new Set());
+  const [editingPickupOrder, setEditingPickupOrder] = useState<Order | null>(null);
+  const [pickupEditSaving, setPickupEditSaving] = useState(false);
 
   // Updates state
   const [updates, setUpdates] = useState<UpdateEntry[]>([]);
@@ -188,6 +276,9 @@ export default function AdminPage() {
   const [newUpdate, setNewUpdate] = useState({ version: "", description: "", date: "" });
   const [savingUpdate, setSavingUpdate] = useState(false);
   const [deletingUpdates, setDeletingUpdates] = useState<Set<string>>(new Set());
+  const [requestedUpdates, setRequestedUpdates] = useState("");
+  const [requestedUpdatesLoading, setRequestedUpdatesLoading] = useState(false);
+  const [requestedUpdatesSaving, setRequestedUpdatesSaving] = useState(false);
   
   // Products state
   const [products, setProducts] = useState<Product[]>([]);
@@ -342,6 +433,7 @@ export default function AdminPage() {
       fetchTextTemplate();
     } else if (activeTab === "updates") {
       fetchUpdates();
+      fetchRequestedUpdates();
     } else if (activeTab === "customers") {
       fetchOrders();
     } else if (activeTab === "special-event") {
@@ -389,6 +481,74 @@ export default function AdminPage() {
     }
   };
 
+  const fetchRequestedUpdates = async () => {
+    try {
+      setRequestedUpdatesLoading(true);
+      const response = await fetch(
+        `/api/settings?label=${encodeURIComponent(REQUESTED_UPDATES_SETTING_LABEL)}`
+      );
+      if (response.ok) {
+        const setting = await response.json();
+        setRequestedUpdates(setting?.value || "");
+      }
+    } catch (error) {
+      console.error("Error fetching requested updates:", error);
+    } finally {
+      setRequestedUpdatesLoading(false);
+    }
+  };
+
+  const handleSaveRequestedUpdates = async () => {
+    try {
+      setRequestedUpdatesSaving(true);
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: REQUESTED_UPDATES_SETTING_LABEL,
+          value: requestedUpdates,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        alert(error?.error || "Failed to save requested updates");
+        return;
+      }
+    } catch (error) {
+      console.error("Error saving requested updates:", error);
+      alert("Error saving requested updates. Please try again.");
+    } finally {
+      setRequestedUpdatesSaving(false);
+    }
+  };
+
+  const handleSaveOrderPickup = async (orderId: string, pickupDate: string, pickupTime: string) => {
+    try {
+      setPickupEditSaving(true);
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickupDate, pickupTime }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        alert(error?.error || "Failed to update pickup");
+        return;
+      }
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId ? { ...order, pickupDate, pickupTime } : order
+        )
+      );
+      setEditingPickupOrder(null);
+    } catch (error) {
+      console.error("Error updating pickup:", error);
+      alert("Error updating pickup. Please try again.");
+    } finally {
+      setPickupEditSaving(false);
+    }
+  };
+
   const toggleOrderCompleted = async (orderId: string, currentStatus: boolean) => {
     try {
       setUpdatingOrders((prev) => new Set(prev).add(orderId));
@@ -426,25 +586,35 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm("Delete this order permanently? This cannot be undone.")) {
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm("Cancel this order? It will be marked as cancelled.")) {
       return;
     }
 
     try {
       setDeletingOrders((prev) => new Set(prev).add(orderId));
 
-      const response = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelled: true }),
+      });
 
       if (response.ok) {
-        setOrders((prev) => prev.filter((order) => order.id !== orderId));
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === orderId
+              ? { ...order, cancelled: true, cancelledDate: new Date().toISOString() }
+              : order
+          )
+        );
       } else {
         const error = await response.json().catch(() => null);
-        alert(error?.error || "Failed to delete order");
+        alert(error?.error || "Failed to cancel order");
       }
     } catch (error) {
-      console.error("Error deleting order:", error);
-      alert("Error deleting order");
+      console.error("Error cancelling order:", error);
+      alert("Error cancelling order");
     } finally {
       setDeletingOrders((prev) => {
         const next = new Set(prev);
@@ -1781,15 +1951,17 @@ export default function AdminPage() {
                                   : "Mark as Completed"}
                               </button>
                             )}
+                            {!order.cancelled && (
                             <button
-                              onClick={() => handleDeleteOrder(order.id)}
+                              onClick={() => handleCancelOrder(order.id)}
                               disabled={deletingOrders.has(order.id) || updatingOrders.has(order.id)}
-                              title="Delete order"
-                              aria-label="Delete order"
+                              title="Cancel order"
+                              aria-label="Cancel order"
                               className="h-9 w-9 flex items-center justify-center rounded-full font-bold transition-colors bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {deletingOrders.has(order.id) ? "…" : "×"}
                             </button>
+                            )}
                           </div>
                         </div>
 
@@ -1807,19 +1979,27 @@ export default function AdminPage() {
                                 : "Venmo (pre-pay)"}
                             </p>
                           </div>
-                          {order.pickupDate && order.pickupTime && (
-                            <div>
+                          <div>
+                            <div className="flex items-center gap-2">
                               <p className="text-sm font-medium text-gray-600">Pickup</p>
-                              <p className="text-gray-900">
-                                {formatPickupDisplay(order.pickupDate, {
-                                  weekday: "short",
-                                  month: "short",
-                                  day: "numeric",
-                                })}{" "}
-                                at {order.pickupTime}
-                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setEditingPickupOrder(order)}
+                                className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md bg-brown-600 text-white hover:bg-brown-700 transition-colors"
+                              >
+                                Edit
+                              </button>
                             </div>
-                          )}
+                            <p className="text-gray-900">
+                              {order.pickupDate && order.pickupTime
+                                ? `${formatPickupDisplay(order.pickupDate, {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                  })} at ${order.pickupTime}`
+                                : "Not set"}
+                            </p>
+                          </div>
                           <div>
                             <p className="text-sm font-medium text-gray-600">Total</p>
                             <p className="text-xl font-bold text-gray-900">
@@ -3775,12 +3955,43 @@ export default function AdminPage() {
         {/* Updates Tab */}
         {activeTab === "updates" && (
           <>
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Requested Updates</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Notes for future website changes. This stays on the admin page only.
+                </p>
+                {requestedUpdatesLoading ? (
+                  <p className="text-sm text-gray-600">Loading requested updates...</p>
+                ) : (
+                  <>
+                    <textarea
+                      value={requestedUpdates}
+                      onChange={(e) => setRequestedUpdates(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                      rows={6}
+                      placeholder="List requested updates here..."
+                    />
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={handleSaveRequestedUpdates}
+                        disabled={requestedUpdatesSaving}
+                        className="bg-brown-600 text-white px-4 py-2 rounded-lg hover:bg-brown-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {requestedUpdatesSaving ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
             {updatesLoading ? (
               <div className="text-center py-12">
                 <p className="text-gray-600">Loading updates...</p>
               </div>
             ) : (
-              <div className="space-y-6">
+              <>
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">Post a New Update</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -3866,8 +4077,9 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </>
             )}
+            </div>
           </>
         )}
 
@@ -4045,6 +4257,18 @@ export default function AdminPage() {
         )}
         <Footer />
       </main>
+      {editingPickupOrder && (
+        <EditOrderPickupModal
+          order={editingPickupOrder}
+          saving={pickupEditSaving}
+          onClose={() => {
+            if (!pickupEditSaving) setEditingPickupOrder(null);
+          }}
+          onSave={(pickupDate, pickupTime) =>
+            handleSaveOrderPickup(editingPickupOrder.id, pickupDate, pickupTime)
+          }
+        />
+      )}
     </div>
   );
 }

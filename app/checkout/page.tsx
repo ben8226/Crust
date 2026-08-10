@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { formatDateInput, parseTimeToMinutes, formatMinutesToTime } from "@/lib/date";
+import { FULL_NAME_REQUIRED_MESSAGE, isFullName } from "@/lib/validation";
 import type { CouponDiscountType } from "@/types/coupon";
 
 const APPLIED_COUPON_STORAGE_KEY = "appliedCoupon";
@@ -40,6 +41,7 @@ export default function CheckoutPage() {
   const [cutEarliestPickupTime, setCutEarliestPickupTime] = useState("2:00 PM");
   const [pickupWindowDates, setPickupWindowDates] = useState<Record<string, { startTime: string; endTime: string; blocked?: boolean }>>({});
   const [phoneError, setPhoneError] = useState<string>("");
+  const [nameError, setNameError] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
@@ -297,6 +299,11 @@ export default function CheckoutPage() {
     if (e.target.name === "phone") {
       handlePhoneChange(e.target.value);
     } else {
+      if (e.target.name === "customerName") {
+        setNameError(
+          e.target.value.trim() && !isFullName(e.target.value) ? FULL_NAME_REQUIRED_MESSAGE : ""
+        );
+      }
       setFormData({
         ...formData,
         [e.target.name]: e.target.value,
@@ -306,6 +313,11 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isFullName(formData.customerName)) {
+      setNameError(FULL_NAME_REQUIRED_MESSAGE);
+      return;
+    }
 
     // Validate that selected date is not blocked
     if (pickupDate && isDateBlocked(pickupDate)) {
@@ -447,8 +459,17 @@ export default function CheckoutPage() {
                   required
                   value={formData.customerName}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    nameError ? "border-red-500" : "border-gray-300"
+                  }`}
+                  aria-invalid={!!nameError}
+                  aria-describedby={nameError ? "name-error" : undefined}
                 />
+                {nameError && (
+                  <p id="name-error" className="text-red-600 text-sm mt-1" role="alert">
+                    {nameError}
+                  </p>
+                )}
               </div>
 
               <div>

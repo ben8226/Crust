@@ -92,6 +92,26 @@ export function formatMinutesToTime(mins: number): string {
   return `${hours12}:${m.toString().padStart(2, "0")} ${period}`;
 }
 
+/** Convert "12:05 PM" style time to `<input type="time">` value (`HH:MM`). */
+export function toTimeInputValue(time: string): string {
+  const mins = parseTimeToMinutes(time);
+  if (mins == null) return "";
+  const hours = Math.floor(mins / 60) % 24;
+  const minutes = mins % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/** Convert `<input type="time">` value (`HH:MM`) to "12:05 PM" style. */
+export function fromTimeInputValue(value: string): string | null {
+  const match = (value || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return formatMinutesToTime(hours * 60 + minutes);
+}
+
 /** Build 30-minute pickup slots between start and end (inclusive). */
 export function buildPickupTimeSlots(startTime: string, endTime: string): string[] {
   const startMins = parseTimeToMinutes(startTime);
