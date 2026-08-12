@@ -2,9 +2,8 @@
  * Absolute URL Textbelt should POST replies to (same path the app implements).
  * See https://docs.textbelt.com/ — add `replyWebhookUrl` on the /text request.
  *
- * Priority:
- * 1. TEXT_REPLY_WEBHOOK_URL — full URL if your public origin is not discoverable from other env vars
- * 2. NEXT_PUBLIC_BASE_URL, NEXT_PUBLIC_SITE_URL, or https://VERCEL_URL + /api/sms/text-reply + optional ?secret=
+ * Built from NEXT_PUBLIC_SITE_URL (or NEXT_PUBLIC_BASE_URL / VERCEL_URL).
+ * Localhost is skipped because Textbelt cannot reach it.
  */
 function isPublicHttpUrl(url: string): boolean {
   try {
@@ -20,18 +19,19 @@ function isPublicHttpUrl(url: string): boolean {
   }
 }
 
-export function getTextbeltReplyWebhookUrl(): string | undefined {
-  const explicit = (process.env.TEXT_REPLY_WEBHOOK_URL || "").trim();
-  if (explicit) return isPublicHttpUrl(explicit) ? explicit : undefined;
-
-  const baseUrl =
-    (process.env.NEXT_PUBLIC_BASE_URL || "").trim() ||
-    (process.env.NEXT_PUBLIC_SITE_URL || "").trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+function withReplyPath(baseUrl: string): string {
   const webhookSecret = (process.env.TEXT_REPLY_WEBHOOK_SECRET || "").trim();
   const replyPath = `/api/sms/text-reply${webhookSecret ? `?secret=${encodeURIComponent(webhookSecret)}` : ""}`;
+  return `${baseUrl.replace(/\/$/, "")}${replyPath}`;
+}
+
+export function getTextbeltReplyWebhookUrl(): string | undefined {
+  const baseUrl =
+    (process.env.NEXT_PUBLIC_SITE_URL || "").trim() ||
+    (process.env.NEXT_PUBLIC_BASE_URL || "").trim() ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
   if (!baseUrl) return undefined;
-  const url = `${baseUrl.replace(/\/$/, "")}${replyPath}`;
+  const url = withReplyPath(baseUrl);
   return isPublicHttpUrl(url) ? url : undefined;
 }
 
@@ -39,6 +39,7 @@ export function getTextbeltReplyWebhookUrl(): string | undefined {
  * Send SMS via Textbelt API.
  * Uses TEXTBELT_API_KEY from environment.
  * When `replyWebhookUrl` is omitted, uses getTextbeltReplyWebhookUrl() so Textbelt receives the webhook on every send.
+ * Textbelt's reply-webhook examples use form-urlencoded, so we send that content type.
  */
 export async function sendSms(
   phone: string,
@@ -63,21 +64,28 @@ export async function sendSms(
       ? options.replyWebhookUrl.trim() || undefined
       : getTextbeltReplyWebhookUrl();
 
-  const body: Record<string, string> = {
-    phone: digits,
-    message,
-    key: apiKey,
-  };
-  if (options?.sender) body.sender = options.sender;
-  if (replyWebhookUrl) body.replyWebhookUrl = replyWebhookUrl;
+  const form = new URLSearchParams();
+  form.set("phone", digits);
+  form.set("message", message);
+  form.set("key", apiKey);
+  if (options?.sender) form.set("sender", options.sender);
+  if (replyWebhookUrl) form.set("replyWebhookUrl", replyWebhookUrl);
   const webhookData = (options?.webhookData || "").trim().slice(0, 100);
-  if (webhookData) body.webhookData = webhookData;
+  if (webhookData) form.set("webhookData", webhookData);
+
+  if (replyWebhookUrl) {
+    console.log("Textbelt replyWebhookUrl:", replyWebhookUrl);
+  } else {
+    console.warn(
+      "Textbelt replyWebhookUrl omitted — customer replies cannot be delivered. Set NEXT_PUBLIC_SITE_URL to a public https URL."
+    );
+  }
 
   try {
     const res = await fetch("https://textbelt.com/text", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
     });
     const data = (await res.json()) as {
       success?: boolean;

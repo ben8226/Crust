@@ -85,6 +85,7 @@ export async function POST(request: Request) {
 
   try {
     const data = await parseRequestBody(request);
+    console.log("SMS reply webhook payload:", JSON.stringify(data));
     const parsed = parseTextReplyPayload(data);
     if (!parsed) {
       return NextResponse.json(
@@ -111,6 +112,9 @@ export async function POST(request: Request) {
     };
 
     await appendTextReplyEntry(entry);
+    console.log(
+      `SMS reply stored ${entry.id} orderId=${entry.orderId || "(none)"} from=${entry.fromNumber}`
+    );
 
     if (matchedOrder) {
       const existing = matchedOrder.reminderReplies || [];
