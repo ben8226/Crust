@@ -72,11 +72,13 @@ export async function GET(request: Request) {
       message = renderTextTemplate(message, { time, address: pickupAddress });
       const result = await sendSms(order.phone, message, {
         sender: storeName,
+        webhookData: order.id,
       });
 
       if (result.success) {
         await updateOrder(order.id, {
           reminderSentAt: new Date().toISOString(),
+          reminderTextId: result.textId != null ? String(result.textId) : undefined,
         });
         results.push({ orderId: order.id, textsRemaining: result.quotaRemaining, success: true });
       } else {

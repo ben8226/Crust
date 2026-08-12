@@ -23,6 +23,17 @@ export interface Product {
   };
 }
 
+export interface ReminderReply {
+  id: string;
+  createdAt: string;
+  fromNumber: string;
+  text: string;
+  /** Inbound customer SMS vs outbound admin SMS. Missing = customer (legacy rows). */
+  direction?: "customer" | "admin";
+  /** Textbelt id for this outbound message, used to match later customer replies. */
+  textId?: string;
+}
+
 export interface CartItem {
   product: Product;
   quantity: number;
@@ -43,6 +54,8 @@ export interface Order {
   pickupDate?: string;
   pickupTime?: string;
   reminderSentAt?: string; // ISO timestamp when pickup reminder SMS was sent
+  reminderTextId?: string; // Textbelt textId of the outbound pickup reminder
+  reminderReplies?: ReminderReply[]; // Inbound SMS replies to the pickup reminder
   heardAboutUs?: string; // Optional: how customer heard about us
   completed?: boolean; // Whether the order has been completed/fulfilled
   completedDate?: string; // Date when order was marked as completed

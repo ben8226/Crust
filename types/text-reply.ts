@@ -7,4 +7,6 @@ export interface TextReplyEntry {
   textId: string;
   fromNumber: string;
   text: string;
+  /** Order that received the reminder this reply is associated with */
+  orderId?: string;
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { appendTextReplyEntry } from "@/lib/db";
+import { appendTextReplyEntry, getOrders, updateOrder } from "@/lib/db";
+import { findOrderForSmsReply, toReminderReply } from "@/lib/text-reply";
 import type { TextReplyEntry } from "@/types/text-reply";
 
 function verifyTextReplyWebhook(request: Request): boolean {
@@ -23,17 +24,23 @@ function parseTextReplyPayload(data: Record<string, unknown>): {
   textId: string;
   fromNumber: string;
   text: string;
+  orderIdHint?: string;
 } | null {
   const textIdRaw = data.textID ?? data.textId ?? data.text_id;
   const fromRaw = data.fromNumber ?? data.from_number ?? data.from;
   const textRaw = data.text ?? data.message ?? data.body;
-  if (textIdRaw === undefined || textIdRaw === null || String(textIdRaw).trim() === "") return null;
+  const hintRaw = data.data ?? data.webhookData ?? data.orderId;
   if (fromRaw === undefined || fromRaw === null || String(fromRaw).trim() === "") return null;
   if (textRaw === undefined || textRaw === null) return null;
+  const textId =
+    textIdRaw === undefined || textIdRaw === null ? "" : String(textIdRaw).trim();
+  const orderIdHint =
+    hintRaw === undefined || hintRaw === null ? undefined : String(hintRaw).trim() || undefined;
   return {
-    textId: String(textIdRaw).trim(),
+    textId,
     fromNumber: String(fromRaw).trim(),
     text: String(textRaw),
+    orderIdHint,
   };
 }
 
@@ -81,10 +88,18 @@ export async function POST(request: Request) {
     const parsed = parseTextReplyPayload(data);
     if (!parsed) {
       return NextResponse.json(
-        { error: "Missing required fields: textID, fromNumber, text" },
+        { error: "Missing required fields: fromNumber, text" },
         { status: 400 }
       );
     }
+
+    const orders = await getOrders();
+    const matchedOrder = findOrderForSmsReply(
+      orders,
+      parsed.textId,
+      parsed.fromNumber,
+      parsed.orderIdHint
+    );
 
     const entry: TextReplyEntry = {
       id: newReplyId(),
@@ -92,10 +107,28 @@ export async function POST(request: Request) {
       textId: parsed.textId,
       fromNumber: parsed.fromNumber,
       text: parsed.text,
+      orderId: matchedOrder?.id,
     };
 
     await appendTextReplyEntry(entry);
-    return NextResponse.json({ ok: true, id: entry.id }, { status: 200 });
+
+    if (matchedOrder) {
+      const existing = matchedOrder.reminderReplies || [];
+      if (!existing.some((r) => r.id === entry.id)) {
+        try {
+          await updateOrder(matchedOrder.id, {
+            reminderReplies: [toReminderReply(entry), ...existing],
+          });
+        } catch (attachError) {
+          console.error("Failed to attach text reply to order:", attachError);
+        }
+      }
+    }
+
+    return NextResponse.json(
+      { ok: true, id: entry.id, orderId: entry.orderId },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Text reply webhook error:", error);
     return NextResponse.json(

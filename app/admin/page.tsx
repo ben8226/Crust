@@ -13,6 +13,7 @@ import type { Coupon, CouponDiscountType } from "@/types/coupon";
 import Link from "next/link";
 import AdminPasswordModal from "@/components/AdminPasswordModal";
 import { formatDateInput, formatPickupDisplay, parseLocalDateString, toTimeInputValue, fromTimeInputValue } from "@/lib/date";
+import { findOrderForSmsReply, isCustomerReminderReply, mergeRepliesOntoOrders } from "@/lib/text-reply";
 
 // 30-min slots from 8:00 AM to 10:00 PM for pickup time dropdowns
 const PICKUP_TIME_OPTIONS: string[] = (() => {
@@ -269,6 +270,8 @@ export default function AdminPage() {
   const [deletingOrders, setDeletingOrders] = useState<Set<string>>(new Set());
   const [editingPickupOrder, setEditingPickupOrder] = useState<Order | null>(null);
   const [pickupEditSaving, setPickupEditSaving] = useState(false);
+  const [orderReplyDrafts, setOrderReplyDrafts] = useState<Record<string, string>>({});
+  const [sendingOrderReplies, setSendingOrderReplies] = useState<Set<string>>(new Set());
 
   // Updates state
   const [updates, setUpdates] = useState<UpdateEntry[]>([]);
@@ -448,13 +451,20 @@ export default function AdminPage() {
   const fetchOrders = async () => {
     try {
       setOrdersLoading(true);
-      const response = await fetch("/api/orders");
-      if (response.ok) {
-        const data = await response.json();
+      const [ordersRes, repliesRes] = await Promise.all([
+        fetch("/api/orders"),
+        fetch("/api/text-replies"),
+      ]);
+      if (ordersRes.ok) {
+        const data = await ordersRes.json();
         const sorted = data.sort((a: Order, b: Order) => 
           new Date(b.date).getTime() - new Date(a.date).getTime()
         );
         setOrders(sorted);
+      }
+      if (repliesRes.ok) {
+        const replies: TextReplyEntry[] = await repliesRes.json();
+        setTextReplies(replies);
       }
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -546,6 +556,37 @@ export default function AdminPage() {
       alert("Error updating pickup. Please try again.");
     } finally {
       setPickupEditSaving(false);
+    }
+  };
+
+  const handleSendOrderTextReply = async (orderId: string) => {
+    const message = (orderReplyDrafts[orderId] || "").trim();
+    if (!message) return;
+    try {
+      setSendingOrderReplies((prev) => new Set(prev).add(orderId));
+      const response = await fetch(`/api/orders/${orderId}/text-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        alert(data?.error || "Failed to send text");
+        return;
+      }
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? { ...order, ...data } : order))
+      );
+      setOrderReplyDrafts((prev) => ({ ...prev, [orderId]: "" }));
+    } catch (error) {
+      console.error("Error sending order text reply:", error);
+      alert("Error sending text. Please try again.");
+    } finally {
+      setSendingOrderReplies((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
     }
   };
 
@@ -1557,7 +1598,12 @@ export default function AdminPage() {
     new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 1)
   );
 
-  const filteredOrders = orders.filter((order) => {
+  const ordersWithReplies = useMemo(
+    () => mergeRepliesOntoOrders(orders, textReplies),
+    [orders, textReplies]
+  );
+
+  const filteredOrders = ordersWithReplies.filter((order) => {
     if (filter === "pending") return !order.completed && !order.cancelled;
     if (filter === "completed") return order.completed && !order.cancelled;
     if (filter === "cancelled") return order.cancelled;
@@ -1922,6 +1968,11 @@ export default function AdminPage() {
                                   Pending
                                 </span>
                               )}
+                              {(order.reminderReplies || []).some(isCustomerReminderReply) && (
+                                <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+                                  Reply
+                                </span>
+                              )}
                             </div>
                             <p className="text-sm text-gray-600">
                               {new Date(order.date).toLocaleString("en-US", {
@@ -2034,6 +2085,89 @@ export default function AdminPage() {
                                 : "No"}
                             </p>
                           </div>
+                          {(order.reminderSentAt || (order.reminderReplies?.length ?? 0) > 0) && (
+                            <div className="md:col-span-2">
+                              <p className="text-sm font-medium text-gray-600">Text thread</p>
+                              <div className="mt-2 space-y-2">
+                                {order.reminderSentAt && (
+                                  <p className="text-xs text-gray-500">
+                                    Pickup reminder sent{" "}
+                                    {new Date(order.reminderSentAt).toLocaleString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                    })}
+                                  </p>
+                                )}
+                                {[...(order.reminderReplies || [])]
+                                  .sort(
+                                    (a, b) =>
+                                      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                                  )
+                                  .map((reply) => {
+                                    const fromAdmin = reply.direction === "admin";
+                                    return (
+                                      <div
+                                        key={reply.id}
+                                        className={`rounded-lg px-3 py-2 ${
+                                          fromAdmin
+                                            ? "bg-tan-100 border border-tan-300 ml-8"
+                                            : "bg-blue-50 border border-blue-100 mr-8"
+                                        }`}
+                                      >
+                                        <p
+                                          className={`text-xs mb-1 ${
+                                            fromAdmin ? "text-brown-700" : "text-blue-800"
+                                          }`}
+                                        >
+                                          {fromAdmin ? "You" : "Customer"} ·{" "}
+                                          {new Date(reply.createdAt).toLocaleString("en-US", {
+                                            month: "short",
+                                            day: "numeric",
+                                            year: "numeric",
+                                            hour: "numeric",
+                                            minute: "2-digit",
+                                          })}
+                                        </p>
+                                        <p className="text-gray-900 whitespace-pre-wrap">{reply.text}</p>
+                                      </div>
+                                    );
+                                  })}
+                                {order.phone && (
+                                  <div className="pt-1">
+                                    <textarea
+                                      value={orderReplyDrafts[order.id] || ""}
+                                      onChange={(e) =>
+                                        setOrderReplyDrafts((prev) => ({
+                                          ...prev,
+                                          [order.id]: e.target.value,
+                                        }))
+                                      }
+                                      rows={3}
+                                      placeholder="Reply to customer…"
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-transparent"
+                                      disabled={sendingOrderReplies.has(order.id)}
+                                    />
+                                    <div className="mt-2 flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSendOrderTextReply(order.id)}
+                                        disabled={
+                                          sendingOrderReplies.has(order.id) ||
+                                          !(orderReplyDrafts[order.id] || "").trim()
+                                        }
+                                        className="px-4 py-2 bg-brown-600 text-white rounded-lg hover:bg-brown-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        {sendingOrderReplies.has(order.id) ? "Sending…" : "Send reply"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="border-t pt-4">
@@ -3580,6 +3714,7 @@ export default function AdminPage() {
                           <th className="px-3 py-2">Time</th>
                           <th className="px-3 py-2">Customer</th>
                           <th className="px-3 py-2">From</th>
+                          <th className="px-3 py-2">Order</th>
                           <th className="px-3 py-2">Message</th>
                         </tr>
                       </thead>
@@ -3587,6 +3722,9 @@ export default function AdminPage() {
                         {textReplies.map((reply) => {
                           const phoneKey = normalizePhoneKey(reply.fromNumber);
                           const customerName = customerNameByPhone.get(phoneKey);
+                          const linkedOrder =
+                            (reply.orderId && orders.find((o) => o.id === reply.orderId)) ||
+                            findOrderForSmsReply(orders, reply.textId, reply.fromNumber);
                           return (
                             <tr key={reply.id} className="align-top">
                               <td className="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">
@@ -3602,6 +3740,19 @@ export default function AdminPage() {
                                 {customerName || "—"}
                               </td>
                               <td className="px-3 py-2 text-gray-800 whitespace-nowrap">{reply.fromNumber}</td>
+                              <td className="px-3 py-2 text-gray-800 whitespace-nowrap">
+                                {linkedOrder ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveTab("orders")}
+                                    className="text-brown-600 hover:text-brown-700 font-medium"
+                                  >
+                                    #{linkedOrder.id}
+                                  </button>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
                               <td className="px-3 py-2 text-gray-800 whitespace-pre-wrap max-w-md">{reply.text}</td>
                             </tr>
                           );

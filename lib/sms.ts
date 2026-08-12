@@ -6,9 +6,23 @@
  * 1. TEXT_REPLY_WEBHOOK_URL — full URL if your public origin is not discoverable from other env vars
  * 2. NEXT_PUBLIC_BASE_URL, NEXT_PUBLIC_SITE_URL, or https://VERCEL_URL + /api/sms/text-reply + optional ?secret=
  */
+function isPublicHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local")) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getTextbeltReplyWebhookUrl(): string | undefined {
   const explicit = (process.env.TEXT_REPLY_WEBHOOK_URL || "").trim();
-  if (explicit) return explicit;
+  if (explicit) return isPublicHttpUrl(explicit) ? explicit : undefined;
 
   const baseUrl =
     (process.env.NEXT_PUBLIC_BASE_URL || "").trim() ||
@@ -17,7 +31,8 @@ export function getTextbeltReplyWebhookUrl(): string | undefined {
   const webhookSecret = (process.env.TEXT_REPLY_WEBHOOK_SECRET || "").trim();
   const replyPath = `/api/sms/text-reply${webhookSecret ? `?secret=${encodeURIComponent(webhookSecret)}` : ""}`;
   if (!baseUrl) return undefined;
-  return `${baseUrl.replace(/\/$/, "")}${replyPath}`;
+  const url = `${baseUrl.replace(/\/$/, "")}${replyPath}`;
+  return isPublicHttpUrl(url) ? url : undefined;
 }
 
 /**
@@ -28,7 +43,7 @@ export function getTextbeltReplyWebhookUrl(): string | undefined {
 export async function sendSms(
   phone: string,
   message: string,
-  options?: { sender?: string; replyWebhookUrl?: string }
+  options?: { sender?: string; replyWebhookUrl?: string; webhookData?: string }
 ): Promise<{ success: boolean; textId?: number; error?: string; quotaRemaining?: number }> {
   const apiKey = process.env.TEXTBELT_API_KEY;
   if (!apiKey) {
@@ -55,6 +70,8 @@ export async function sendSms(
   };
   if (options?.sender) body.sender = options.sender;
   if (replyWebhookUrl) body.replyWebhookUrl = replyWebhookUrl;
+  const webhookData = (options?.webhookData || "").trim().slice(0, 100);
+  if (webhookData) body.webhookData = webhookData;
 
   try {
     const res = await fetch("https://textbelt.com/text", {
