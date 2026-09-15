@@ -537,7 +537,6 @@ export default function CheckoutPage() {
                   <option value="crystal-community-page">Facebook: Crystal Community Page</option>
                   <option value="yard-sign">Yard Sign</option>
                   <option value="friend/family">Friend / Family</option>
-                  <option value="risor-apple-valley-55+">Risor Apple Valley 55+</option>
                   
                 </select>
               </div>              
