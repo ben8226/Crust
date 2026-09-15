@@ -30,7 +30,13 @@ const galleryImages = [
   "/images/Gallery/GalleryVer2_11.JPEG",
   "/images/Gallery/GalleryVer2_12.JPEG",
   "/images/Gallery/GalleryVer2_13.JPEG",
-  "/images/Gallery/GalleryVer2_14.JPEG"
+  "/images/Gallery/GalleryVer2_14.JPEG",
+  "/images/Gallery/GalleryVer3_1.JPEG",
+  "/images/Gallery/GalleryVer3_2.JPEG",
+  "/images/Gallery/GalleryVer3_3.JPEG",
+  "/images/Gallery/GalleryVer3_4.JPEG",
+  "/images/Gallery/GalleryVer3_5.JPEG"
+
 ];
 
 
