@@ -50,6 +50,7 @@ export async function PATCH(
     if (body.bakersFavorite !== undefined) updates.bakersFavorite = body.bakersFavorite;
     if (body.hiddenFromMenu !== undefined) updates.hiddenFromMenu = body.hiddenFromMenu;
     if (body.includeInSampleBoxes !== undefined) updates.includeInSampleBoxes = body.includeInSampleBoxes;
+    if (body.notSliceable !== undefined) updates.notSliceable = body.notSliceable;
 
     const updatedProduct = await updateProduct(params.id, updates);
 

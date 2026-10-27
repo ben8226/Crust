@@ -315,6 +315,7 @@ export default function AdminPage() {
     bakersFavorite: false,
     hiddenFromMenu: false,
     includeInSampleBoxes: false,
+    notSliceable: false,
   });
 
   // Calendar state
@@ -805,6 +806,7 @@ export default function AdminPage() {
           hiddenFromMenu: editingProduct.hiddenFromMenu ?? false,
           includeInSampleBoxes:
             editingProduct.hiddenFromMenu ? (editingProduct.includeInSampleBoxes ?? false) : false,
+          notSliceable: editingProduct.notSliceable ?? false,
         }),
       });
 
@@ -858,6 +860,7 @@ export default function AdminPage() {
           hiddenFromMenu: newProduct.hiddenFromMenu ?? false,
           includeInSampleBoxes:
             newProduct.hiddenFromMenu ? (newProduct.includeInSampleBoxes ?? false) : false,
+          notSliceable: newProduct.notSliceable ?? false,
         }),
       });
 
@@ -879,6 +882,7 @@ export default function AdminPage() {
           bakersFavorite: false,
           hiddenFromMenu: false,
           includeInSampleBoxes: false,
+          notSliceable: false,
         });
         setShowNewProductForm(false);
       } else {
@@ -2412,6 +2416,22 @@ export default function AdminPage() {
                           <label className="flex items-center gap-2">
                             <input
                               type="checkbox"
+                              checked={newProduct.notSliceable ?? false}
+                              onChange={(e) =>
+                                setNewProduct({
+                                  ...newProduct,
+                                  notSliceable: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              Not sliceable
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
                               checked={newProduct.hiddenFromMenu ?? false}
                               onChange={(e) =>
                                 setNewProduct({
@@ -2583,6 +2603,7 @@ export default function AdminPage() {
                               bakersFavorite: false,
                               hiddenFromMenu: false,
                               includeInSampleBoxes: false,
+                              notSliceable: false,
                             });
                           }}
                           className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
@@ -2781,6 +2802,22 @@ export default function AdminPage() {
                               />
                               <span className="text-sm font-medium text-gray-700">
                                 Baker&apos;s favorite
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={editingProduct.notSliceable ?? false}
+                                onChange={(e) =>
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    notSliceable: e.target.checked,
+                                  })
+                                }
+                                className="w-4 h-4 text-brown-600 focus:ring-brown-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm font-medium text-gray-700">
+                                Not sliceable
                               </span>
                             </label>
                             <label className="flex items-center gap-2">

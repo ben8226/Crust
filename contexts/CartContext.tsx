@@ -132,7 +132,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       (total, item) =>
         total +
         item.product.price * item.quantity +
-        (item.cut ? 1 * item.quantity : 0),
+        (item.cut && !item.product.notSliceable ? 1 * item.quantity : 0),
       0
     );
   };
@@ -156,6 +156,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           ((item.product.loafType !== 'mini' && item.product.loafType !== 'half') || isSameLoafSelection);
 
         if (!isSameProduct) return item;
+        if (item.product.notSliceable) return { ...item, cut: false };
         return { ...item, cut: !item.cut };
       })
     );

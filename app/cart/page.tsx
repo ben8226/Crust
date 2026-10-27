@@ -53,6 +53,20 @@ export default function CartPage() {
     return bread?.name || breadId;
   };
 
+  const isNotSliceable = (product: Product) => {
+    const live = allProducts.find((p) => p.id === product.id);
+    return !!(live?.notSliceable ?? product.notSliceable);
+  };
+
+  useEffect(() => {
+    if (allProducts.length === 0) return;
+    cart.forEach((item) => {
+      if (item.cut && isNotSliceable(item.product)) {
+        toggleCut(item.product.id, item.selectedBreads);
+      }
+    });
+  }, [allProducts, cart, toggleCut]);
+
   // Load payment method from localStorage on mount
   useEffect(() => {
     const savedPaymentMethod = localStorage.getItem("paymentMethod");
@@ -254,12 +268,12 @@ export default function CartPage() {
                     </div>
                     <div className="text-left sm:text-right">
                       <p className="text-base sm:text-lg font-semibold text-gray-900">
-                        ${(item.product.price * item.quantity + (item.cut ? item.quantity : 0)).toFixed(2)}
+                        ${(item.product.price * item.quantity + (item.cut && !isNotSliceable(item.product) ? item.quantity : 0)).toFixed(2)}
                       </p>
                       <p className="text-xs sm:text-sm text-gray-500">
                         ${item.product.price.toFixed(2)} each
                       </p>
-                      {item.cut && (
+                      {item.cut && !isNotSliceable(item.product) && (
                         <p className="text-xs text-gray-500">
                           +${(1 * item.quantity).toFixed(2)} slicing
                         </p>
@@ -267,8 +281,9 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  {/* Slice bread option (only for bread category items) */}
-                  {item.product.category?.toLowerCase().includes("bread") && (
+                  {/* Slice bread option (only for bread category items that are sliceable) */}
+                  {item.product.category?.toLowerCase().includes("bread") &&
+                    !isNotSliceable(item.product) && (
                     <div className="mt-3">
                       <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                         <input

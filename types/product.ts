@@ -11,6 +11,7 @@ export interface Product {
   bakersFavorite?: boolean;
   hiddenFromMenu?: boolean;
   includeInSampleBoxes?: boolean; // Allow hidden products to still be selectable in sample boxes
+  notSliceable?: boolean; // If true, hide the pre-sliced option in the cart
   ingredients?: string; // Optional ingredients list
   loafType?: "mini" | "half"; // Special product types that require bread selection
   allergens?: {

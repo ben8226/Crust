@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveOrder, getOrders, validatePickupSlot, getSpecialEvent, getCouponByCode } from "@/lib/db";
+import { saveOrder, getOrders, getProducts, validatePickupSlot, getSpecialEvent, getCouponByCode } from "@/lib/db";
 import { Order } from "@/types/product";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import {
@@ -43,6 +43,23 @@ export async function POST(request: Request) {
     if (!Array.isArray(body.items) || body.items.length === 0) {
       return NextResponse.json(
         { error: "Items array is required and must not be empty" },
+        { status: 400 }
+      );
+    }
+
+    const catalogProducts = await getProducts();
+    const notSliceableIds = new Set(
+      catalogProducts.filter((p) => p.notSliceable).map((p) => p.id)
+    );
+    const slicedNotSliceable = body.items.some(
+      (item: { cut?: boolean; product?: { id?: string; notSliceable?: boolean } }) =>
+        !!item.cut &&
+        (item.product?.notSliceable ||
+          (item.product?.id ? notSliceableIds.has(item.product.id) : false))
+    );
+    if (slicedNotSliceable) {
+      return NextResponse.json(
+        { error: "Pre-sliced is not available for one or more items in this order." },
         { status: 400 }
       );
     }
