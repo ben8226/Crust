@@ -7,8 +7,9 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DatePicker from "react-datepicker";
-import { formatDateInput, parseTimeToMinutes, formatMinutesToTime } from "@/lib/date";
+import { formatDateInput, parseTimeToMinutes, formatMinutesToTime, getAllPickupTimeOptions } from "@/lib/date";
 import { FULL_NAME_REQUIRED_MESSAGE, isFullName } from "@/lib/validation";
+import { isAdminSessionActive } from "@/lib/admin-session";
 import type { CouponDiscountType } from "@/types/coupon";
 
 const APPLIED_COUPON_STORAGE_KEY = "appliedCoupon";
@@ -42,18 +43,36 @@ export default function CheckoutPage() {
   const [phoneError, setPhoneError] = useState<string>("");
   const [nameError, setNameError] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
   const subtotal = getTotalPrice();
   const discount = appliedCoupon?.discount ?? 0;
   const orderTotal = Math.max(0, subtotal - discount);
 
-  // Calculate min and max dates (2 days from today to one month in future)
+  useEffect(() => {
+    const refresh = () => setIsAdmin(isAdminSessionActive());
+    refresh();
+    window.addEventListener("admin-auth-success", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("admin-auth-success", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
+  // Regular customers: 2 days from today to one month. Admin: any date from today.
   const minDate = new Date();
-  minDate.setDate(minDate.getDate() + 2); // 2 days from today
+  if (!isAdmin) {
+    minDate.setDate(minDate.getDate() + 2);
+  }
   minDate.setHours(0, 0, 0, 0);
   const maxDate = new Date();
-  maxDate.setMonth(maxDate.getMonth() + 1);
+  if (isAdmin) {
+    maxDate.setFullYear(maxDate.getFullYear() + 2);
+  } else {
+    maxDate.setMonth(maxDate.getMonth() + 1);
+  }
   maxDate.setHours(23, 59, 59, 999);
 
   // Fetch blocked dates
@@ -109,6 +128,7 @@ export default function CheckoutPage() {
 
   // Check if a date is blocked (specific date, full weekday block, or date override)
   const isDateBlocked = (date: Date) => {
+    if (isAdmin) return false;
     const dateString = formatDateInput(date);
     if (blockedDates.includes(dateString)) return true;
     if (pickupWindowDates[dateString]?.blocked) return true;
@@ -122,6 +142,7 @@ export default function CheckoutPage() {
   // Get available pickup times: use date-specific override if set, else weekday config
   const getAvailableTimes = (): string[] => {
     if (!pickupDate) return [];
+    if (isAdmin) return getAllPickupTimeOptions();
 
     const fallback = [
       "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
@@ -164,7 +185,7 @@ export default function CheckoutPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupDate, pickupTimesConfig, pickupWindowDates, cutEarliestPickupTime, cart]);
+  }, [pickupDate, pickupTimesConfig, pickupWindowDates, cutEarliestPickupTime, cart, isAdmin]);
 
   // Convert Date to string for form submission (local, no UTC shift)
   const getDateString = (date: Date | null): string => {
@@ -318,8 +339,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Validate that selected date is not blocked
-    if (pickupDate && isDateBlocked(pickupDate)) {
+    // Validate that selected date is not blocked (admins may use any date)
+    if (!isAdmin && pickupDate && isDateBlocked(pickupDate)) {
       alert("The selected pickup date is blocked and unavailable. Please choose another date.");
       return;
     }
@@ -335,7 +356,7 @@ export default function CheckoutPage() {
     }
 
     const availableTimes = getAvailableTimes();
-    if (!availableTimes.includes(pickupTime)) {
+    if (!isAdmin && !availableTimes.includes(pickupTime)) {
       alert(
         hasCutItems
           ? `Sliced bread orders require pickup at ${cutEarliestPickupTime} or later. Please choose another time.`
@@ -373,6 +394,7 @@ export default function CheckoutPage() {
           pickupDate: getDateString(pickupDate),
           pickupTime: pickupTime,
           couponCode: appliedCoupon?.code,
+          adminOverride: isAdmin || undefined,
         }),
       });
 
@@ -545,6 +567,11 @@ export default function CheckoutPage() {
                 <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">
                   Schedule Pickup
                 </h2>
+                {isAdmin && (
+                  <p className="text-sm text-brown-700 bg-tan-100 border border-tan-300 rounded-lg px-3 py-2 mb-4">
+                    Admin checkout: cart quantity is unlimited, and pickup can be any date and time.
+                  </p>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -556,14 +583,16 @@ export default function CheckoutPage() {
                       onChange={(date: Date | null) => setPickupDate(date)}
                       minDate={minDate}
                       maxDate={maxDate}
-                      filterDate={(date: Date) => !isDateBlocked(date)}
+                      filterDate={(date: Date) => isAdmin || !isDateBlocked(date)}
                       dateFormat="MMMM d, yyyy"
                       placeholderText="Select a date"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-transparent"
                       required
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Select a date at least 2 days in advance (up to one month). Blocked dates are greyed out.
+                      {isAdmin
+                        ? "Admin: any pickup date is available."
+                        : "Select a date at least 2 days in advance (up to one month). Blocked dates are greyed out."}
                     </p>
                   </div>
                   
@@ -587,7 +616,11 @@ export default function CheckoutPage() {
                         </option>
                       ))}
                     </select>
-                    {pickupDate && (() => {
+                    {pickupDate && (isAdmin ? (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Admin: any pickup time from 8:00 AM to 10:00 PM.
+                      </p>
+                    ) : (() => {
                       const dayKey = String(pickupDate.getDay());
                       const window = pickupTimesConfig?.[dayKey];
                       const range = window ? `${window.startTime} – ${window.endTime}` : "12:00 PM – 6:00 PM";
@@ -601,7 +634,7 @@ export default function CheckoutPage() {
                           )}
                         </p>
                       );
-                    })()}
+                    })())}
                   </div>
                 </div>
               </div>

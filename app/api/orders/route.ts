@@ -86,10 +86,13 @@ export async function POST(request: Request) {
         }
       }
 
-      const validation = await validatePickupSlot(body.pickupDate, body.pickupTime, {
-        hasCutItems: body.specialEvent ? false : hasCutItems,
-        specialEvent: !!body.specialEvent,
-      });
+      const skipPickupValidation = body.adminOverride === true;
+      const validation = skipPickupValidation
+        ? { valid: true as const }
+        : await validatePickupSlot(body.pickupDate, body.pickupTime, {
+            hasCutItems: body.specialEvent ? false : hasCutItems,
+            specialEvent: !!body.specialEvent,
+          });
       if (!validation.valid) {
         return NextResponse.json(
           { error: validation.error },

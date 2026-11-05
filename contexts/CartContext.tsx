@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { CartItem, Product } from "@/types/product";
+import { isAdminSessionActive } from "@/lib/admin-session";
 
 const MAX_CART_ITEMS = 4;
 
@@ -21,6 +22,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -28,6 +30,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (savedCart) {
       setCart(JSON.parse(savedCart));
     }
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => setIsAdmin(isAdminSessionActive());
+    refresh();
+    window.addEventListener("admin-auth-success", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("admin-auth-success", refresh);
+      window.removeEventListener("storage", refresh);
+    };
   }, []);
 
   // Save cart to localStorage whenever it changes
@@ -38,7 +51,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addToCart = (product: Product, selectedBreads?: string[]): boolean => {
     // Check if adding would exceed limit
     const currentTotal = cart.reduce((total, item) => total + item.quantity, 0);
-    if (currentTotal >= MAX_CART_ITEMS) {
+    if (!isAdmin && currentTotal >= MAX_CART_ITEMS) {
       alert(`Cart limit reached! You can only order up to ${MAX_CART_ITEMS} items at a time.`);
       return false;
     }
@@ -110,7 +123,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const currentTotal = cart.reduce((total, item) => total + item.quantity, 0);
     const difference = quantity - (currentItem?.quantity || 0);
     
-    if (difference > 0 && currentTotal + difference > MAX_CART_ITEMS) {
+    if (!isAdmin && difference > 0 && currentTotal + difference > MAX_CART_ITEMS) {
       alert(`Cart limit reached! You can only order up to ${MAX_CART_ITEMS} items at a time.`);
       return false;
     }
@@ -173,7 +186,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         getTotalPrice,
         getTotalItems,
-        maxItems: MAX_CART_ITEMS,
+        maxItems: isAdmin ? Number.POSITIVE_INFINITY : MAX_CART_ITEMS,
       }}
     >
       {children}

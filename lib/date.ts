@@ -17,6 +17,20 @@ export function getTodayDateInPickupTz(): string {
   return `${year}-${month}-${day}`;
 }
 
+/** 30-minute pickup slots from 8:00 AM to 10:00 PM (admin / unrestricted checkout). */
+export function getAllPickupTimeOptions(): string[] {
+  const options: string[] = [];
+  for (let h = 8; h <= 22; h++) {
+    for (const m of [0, 30]) {
+      if (h === 22 && m === 30) break;
+      const period = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      options.push(`${h12}:${m.toString().padStart(2, "0")} ${period}`);
+    }
+  }
+  return options;
+}
+
 export function formatDateInput(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
